@@ -1,0 +1,15 @@
+---
+description: Instrucciones específicas para la integración con la hoja del turno
+globs: src/lib/sheets.ts,src/app/api/sheets/**/*.ts,src/app/ajustes/hoja/**/*.tsx
+alwaysApply: false
+---
+
+# Sheets integration
+
+- Google Sheets / Excel del área es la fuente operacional primaria.
+- Supabase es el registro paralelo, no reemplaza la hoja.
+- En el MVP, la integración con la hoja debe ser de solo lectura.
+- Si la hoja y Supabase difieren, abrir conflicto; no sincronizar automáticamente.
+- El mapping de estados debe ser explícito y auditable.
+- Toda sincronización debe dejar evento en la caja negra.
+- No asumir columnas fijas sin documentarlas en `EXPECTED_COLUMNS`.

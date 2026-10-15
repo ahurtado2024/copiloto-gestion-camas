@@ -1,0 +1,17 @@
+---
+description: Reglas globales del proyecto, stack y criterios de cierre
+alwaysApply: true
+---
+
+# Project basics
+
+- Este proyecto usa Next.js App Router + Drizzle + PostgreSQL.
+- La hoja del turno es la fuente operacional primaria.
+- Supabase es el registro en paralelo y respaldo estructurado.
+- No escribir en la hoja del turno en el MVP.
+- Toda mutación relevante pasa por `POST /api/ops`.
+- No romper las reglas R1–R12.
+- Antes de cerrar un cambio, ejecutar `npm run check`.
+- Si cambias schema: probar `npm run db:push` y `npm run seed`.
+- No exponer secretos ni crear `.env` en commits.
+- Documentar decisiones relevantes en `/docs`.

@@ -1,0 +1,152 @@
+name: CI — Copiloto Gestión de Camas
+
+on:
+  push:
+    branches: [main, develop, staging]
+  pull_request:
+    branches: [main, develop, staging]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  # ----------------------------------------------------------------
+  # JOB 1: Validación de código
+  # Corre en cada push y PR
+  # ----------------------------------------------------------------
+  validate:
+    name: Validar código (typegen + tsc + build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      # En CI usamos una URL de test que no apunta a datos reales
+      # Necesitas agregar DATABASE_URL como secret en GitHub repo settings
+      DATABASE_URL: ${{ secrets.DATABASE_URL_CI || 'postgresql://postgres:postgres@localhost:5432/test_db' }}
+      APP_ENV: dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Generar tipos de rutas (Next.js typegen)
+        run: npx next typegen
+        env:
+          # typegen no necesita BD
+          DATABASE_URL: postgresql://localhost/dummy
+
+      - name: TypeScript (sin emitir)
+        run: npm exec tsc -- --noEmit --pretty false
+
+      - name: Build de producción
+        run: npm run build
+        env:
+          DATABASE_URL: postgresql://localhost/dummy
+
+      - name: Lint
+        run: npm run lint --if-present
+        continue-on-error: true
+
+  # ----------------------------------------------------------------
+  # JOB 2: Smoke tests de API (solo en push a main/staging)
+  # Requiere una BD real accesible desde CI
+  # ----------------------------------------------------------------
+  smoke:
+    name: Smoke tests de reglas críticas
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: validate
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging'
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+      APP_ENV: dev
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - run: npm ci
+      - run: npx drizzle-kit push
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+
+      - run: npx tsx scripts/seed.ts
+
+      - name: Iniciar servidor en background
+        run: |
+          npm run build
+          npm run start &
+          sleep 5
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+
+      - name: Healthcheck
+        run: |
+          RESP=$(curl -sf http://localhost:3000/api/health)
+          echo "$RESP"
+          echo "$RESP" | grep '"ok":true'
+
+      - name: R2 — Disponible directo debe fallar
+        run: |
+          RESP=$(curl -sf -X POST http://localhost:3000/api/ops \
+            -H 'Content-Type: application/json' \
+            -d '{"op":"bed","params":{"bedId":11,"bedOp":"mark_available"}}')
+          echo "$RESP"
+          echo "$RESP" | grep '"ok":false'
+          echo "$RESP" | grep 'R2'
+
+      - name: Input inválido — debe retornar VALIDATION_ERROR
+        run: |
+          RESP=$(curl -sf -X POST http://localhost:3000/api/ops \
+            -H 'Content-Type: application/json' \
+            -d '{"op":"bed","params":{"bedId":1,"bedOp":"fly"}}')
+          echo "$RESP"
+          echo "$RESP" | grep 'VALIDATION_ERROR'
+
+      - name: Propuesta vencida — debe fallar
+        run: |
+          RESP=$(curl -sf -X POST http://localhost:3000/api/ops \
+            -H 'Content-Type: application/json' \
+            -d '{"op":"decide_approval","params":{"approvalId":5,"decision":"approved"}}')
+          echo "$RESP"
+          echo "$RESP" | grep '"ok":false'
+
+      - name: Idempotencia — reintento no duplica
+        run: |
+          RESP=$(curl -sf -X POST http://localhost:3000/api/ops \
+            -H 'Content-Type: application/json' \
+            -d '{"op":"simulate_retry"}')
+          echo "$RESP"
+          echo "$RESP" | grep '"ok":true'

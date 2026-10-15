@@ -1,0 +1,15 @@
+---
+description: Guía para rutas API, validación de inputs y errores operativos
+globs: src/app/api/**/*.ts,src/lib/validate.ts,src/lib/errors.ts
+alwaysApply: false
+---
+
+# API and validation
+
+- Toda API mutante usa `POST /api/ops`.
+- Validar inputs antes de tocar el motor.
+- Usar `OperationalError` para errores del dominio.
+- Errores no controlados → modo degradado (R11).
+- Mantener mensajes claros en español.
+- No devolver HTML de error ni lanzar 500 sin contexto operativo.
+- Si agregas una operación nueva a `/api/ops`, documentarla en `docs/API-REFERENCE.md`.
