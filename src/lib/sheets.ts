@@ -101,7 +101,7 @@ export const EXPECTED_COLUMNS = {
   STATUS:   { index: 4, header: "Estado" },       // Columna E
   ACT:      { index: 5, header: "Ultima Actualizacion" },       // Columna F
   USER:     { index: 6, header: "Actualizado por" },       // Columna G
-  NOTE:     { index: 7, header: "Observaciones" },// Columna H
+  NOTE:     { index: 7, header: "Observaciones" },// Columna H 
 } as const;
 
 /* ------------------------------------------------------------------ */
