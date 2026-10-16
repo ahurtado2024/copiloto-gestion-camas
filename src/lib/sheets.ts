@@ -17,6 +17,7 @@
 
 import { HAS_SHEETS } from "@/env";
 import type { BedStatus } from "./domain";
+import { Type } from "lucide-react";
 
 export type SheetBedRow = {
   code: string;              // C-304
@@ -96,8 +97,11 @@ export const EXPECTED_COLUMNS = {
   CODE:     { index: 0, header: "Cama" },        // Columna A
   UNIT:     { index: 1, header: "Unidad" },       // Columna B
   EST:      { index: 2, header: "Establecimiento"}, // Columna C
-  STATUS:   { index: 3, header: "Estado" },       // Columna D
-  NOTE:     { index: 4, header: "Observaciones" },// Columna E
+  TYPE:     { index: 3, header: "Tipo"}, // Columna D
+  STATUS:   { index: 4, header: "Estado" },       // Columna E
+  ACT:      { index: 5, header: "Ultima Actualizacion" },       // Columna F
+  USER:     { index: 6, header: "Actualizado por" },       // Columna G
+  NOTE:     { index: 7, header: "Observaciones" },// Columna H
 } as const;
 
 /* ------------------------------------------------------------------ */
