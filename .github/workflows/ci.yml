@@ -65,6 +65,7 @@ jobs:
   # Requiere una BD real accesible desde CI
   # ----------------------------------------------------------------
   smoke:
+    if: false
     name: Smoke tests de reglas críticas
     runs-on: ubuntu-latest
     timeout-minutes: 10
