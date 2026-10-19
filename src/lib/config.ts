@@ -16,6 +16,7 @@ export type RuntimeRules = {
   SHIFT_HORIZON_HOURS: number;
   CANAL_ASEO: string;
   TURNO_ACTOR: string;
+  MAIL_LOOKBACK_DAYS: number;
 };
 
 export const SETTING_DEFS: {
@@ -34,6 +35,7 @@ export const SETTING_DEFS: {
   { key: "ttl_alta_min", ruleKey: "DISCHARGE_APPROVAL_TTL_MIN", label: "Vigencia de propuesta de alta", hint: "si nadie confirma en este plazo, la propuesta caduca y la cama no se mueve", unit: "min", min: 5, max: 240, numeric: true },
   { key: "ttl_inspeccion_min", ruleKey: "INSPECTION_APPROVAL_TTL_MIN", label: "Vigencia de propuesta de inspección", hint: "plazo para que el humano valide antes de que la propuesta caduque", unit: "min", min: 10, max: 1440, numeric: true },
   { key: "horizonte_turno_h", ruleKey: "SHIFT_HORIZON_HOURS", label: "Horizonte del informe de turno", hint: "horas hacia atrás que cubre el cierre de turno", unit: "h", min: 4, max: 24, numeric: true },
+  { key: "mail_lookback_days", ruleKey: "MAIL_LOOKBACK_DAYS", label: "Ventana de sincronización de correo", hint: "días hacia atrás que el sistema buscará correos no leídos al sincronizar (por defecto 90 días = ~3 meses)", unit: "días", min: 1, max: 90, numeric: true },
   { key: "canal_aseo", ruleKey: "CANAL_ASEO", label: "Canal de aviso a limpieza", hint: "por dónde sale el aviso al equipo de aseo hoy", numeric: false, options: [
     { value: "telegram", label: "Telegram del turno" },
     { value: "whatsapp", label: "WhatsApp del turno" },
@@ -56,6 +58,7 @@ export async function getRules(): Promise<RuntimeRules> {
     CLEANING_ACCEPT_SLA_MIN: num("sla_limpieza_min", RULES.CLEANING_ACCEPT_SLA_MIN),
     STALE_AFTER_HOURS: num("frescura_horas", RULES.STALE_AFTER_HOURS),
     SHIFT_HORIZON_HOURS: num("horizonte_turno_h", RULES.SHIFT_HORIZON_HOURS),
+    MAIL_LOOKBACK_DAYS: num("mail_lookback_days", 90), // 90 días por defecto (≈ 3 meses)
     CANAL_ASEO: map.get("canal_aseo") ?? "telegram",
     TURNO_ACTOR: map.get("turno_actor") ?? "M. Rojas",
   };

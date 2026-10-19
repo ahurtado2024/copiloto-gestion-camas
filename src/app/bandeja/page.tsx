@@ -6,6 +6,7 @@ import { ago, dayTime } from "@/lib/time";
 import { PageHeader, Panel, PanelTitle, EmptyState } from "@/components/ui";
 import { SimulateInboundButton, SimulateRetryButton, Refresher } from "@/components/client";
 import { ChannelBadge, channelBar } from "@/components/links";
+import { MailSyncButton } from "./client";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,7 @@ export default async function BandejaPage({ searchParams }: { searchParams: Prom
         desc="Idempotencia garantizada, extracción visible y respuestas siempre como borrador + tu firma. Click en cualquier mensaje para abrir su detalle: gestión completa, seguimiento e hilo."
         actions={
           <>
+            <MailSyncButton />
             <SimulateInboundButton />
             <SimulateRetryButton />
           </>
