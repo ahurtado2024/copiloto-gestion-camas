@@ -85,12 +85,21 @@ async function readSheetReal(): Promise<SheetReadResult> {
       ok: false,
       rows: [],
       readAt: now,
-      error: "Variables GOOGLE_SHEETS_* no detectadas en process.env. Reinicia el servidor después de editar .env.local.",
+      error: "Variables GOOGLE_SHEETS_* no detectadas en process.env.",
     };
   }
 
   try {
-    const privateKey = config.key!.replace(/\\n/g, "\n");
+    // ---- LIMPIEZA DE LLAVE PEM (Ingeniería Defensiva) ----
+    let rawKey = config.key!.trim();
+    
+    // 1. Quitar comillas si vienen en el string
+    if (rawKey.startsWith('"') && rawKey.endsWith('"')) {
+      rawKey = rawKey.substring(1, rawKey.length - 1);
+    }
+    
+    // 2. Normalizar saltos de línea (\n literales a caracteres de control)
+    const privateKey = rawKey.replace(/\\n/g, "\n");
 
     const auth = new google.auth.GoogleAuth({
       credentials: {
