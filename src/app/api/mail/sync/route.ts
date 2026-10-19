@@ -1,6 +1,7 @@
 /* ------------------------------------------------------------------ */
 /*  POST /api/mail/sync                                                */
 /*  Conecta al inbox real y procesa los correos entrantes.             */
+/*  Usa externalId para idempotencia (R7): no duplica correos.         */
 /* ------------------------------------------------------------------ */
 
 import { NextResponse } from "next/server";
@@ -12,71 +13,76 @@ import { eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Lógica de clasificación simple (MVP)
- * Busca códigos de cama en el asunto o cuerpo
- */
 function extractBedCode(text: string, bedCodes: string[]): string | null {
   const normalized = text.toUpperCase();
-  // Buscamos coincidencia exacta de los códigos que tenemos en DB
   return bedCodes.find(code => normalized.includes(code)) || null;
 }
 
 export async function POST() {
-  const now = new Date();
-
   try {
-    // 1. Obtener correos no leídos del servidor real
     const mailResult = await fetchInbox();
-    
+
     if (!mailResult.ok) {
       return NextResponse.json({ ok: false, message: mailResult.error, tone: "error" });
     }
 
     if (mailResult.emails.length === 0) {
-      return NextResponse.json({ ok: true, message: "No hay correos nuevos por procesar.", tone: "ok" });
+      return NextResponse.json({
+        ok: true,
+        message: "No se encontraron correos en la ventana de tiempo configurada.",
+        tone: "ok",
+      });
     }
 
-    // 2. Obtener lista de códigos de camas para vinculación
     const allBeds = await db.select({ id: beds.id, code: beds.code, unit: beds.unit }).from(beds);
     const bedCodes = allBeds.map(b => b.code.toUpperCase());
 
-    let processedCount = 0;
-    let vinculadosCount = 0;
+    let newCount = 0;
+    let skippedCount = 0;
+    let proposalCount = 0;
 
-    // 3. Procesar cada correo
     for (const email of mailResult.emails) {
-      // Evitar duplicados por UID (R7)
-      const existing = await db.select().from(messages).where(eq(messages.externalId, email.externalId));
-      if (existing.length > 0) continue;
+      // R7 — Idempotencia: si ya existe este correo, se salta
+      const existing = await db.select({ id: messages.id })
+        .from(messages)
+        .where(eq(messages.externalId, email.externalId))
+        .limit(1);
+
+      if (existing.length > 0) {
+        skippedCount++;
+        continue;
+      }
 
       const detectedCode = extractBedCode(email.subject + " " + email.body, bedCodes);
       const bed = allBeds.find(b => b.code.toUpperCase() === detectedCode);
 
-      // Guardar mensaje en base de datos
+      const isAlta = email.subject.toLowerCase().includes("alta")
+        || email.subject.toLowerCase().includes("egreso")
+        || email.subject.toLowerCase().includes("libre");
+
       const [msg] = await db.insert(messages).values({
         externalId: email.externalId,
         channel: "correo",
         direction: "inbound",
         fromName: email.fromName,
         subject: email.subject,
-        body: email.body,
+        body: email.body.substring(0, 5000), // Limitar tamaño del body
         receivedAt: email.receivedAt,
         status: bed ? "vinculado" : "nuevo",
         bedId: bed?.id || null,
-        classification: email.subject.toLowerCase().includes("alta") ? "alta" : "administrativo"
+        classification: isAlta ? "alta" : "administrativo",
       }).returning();
 
-      processedCount++;
+      newCount++;
 
-      // 4. Si detectamos un alta y hay cama, crear PROPUESTA (R1)
-      if (bed && msg.classification === "alta") {
-        vinculadosCount++;
+      // Si detectamos un alta y hay cama, crear PROPUESTA (R1)
+      if (bed && isAlta) {
+        proposalCount++;
         await proposeDischarge({
           bedId: bed.id,
           origin: "correo",
           messageId: msg.id,
-          evidence: `Detectado automáticamente desde correo real de ${email.fromName}: "${email.subject}"`
+          evidence: `Detectado desde correo real de ${email.fromName}: "${email.subject}"`,
         });
       }
 
@@ -84,19 +90,25 @@ export async function POST() {
         actor: "sistema",
         source: "correo",
         kind: "correo_recibido",
-        summary: `Correo real procesado: "${email.subject}" de ${email.fromName}.`,
-        payload: { messageId: msg.id, bedCode: bed?.code }
+        summary: `Correo real: "${email.subject}" de ${email.fromName}${bed ? ` → vinculado a ${bed.code}` : ""}.`,
+        bedId: bed?.id ?? null,
+        payload: { messageId: msg.id, bedCode: bed?.code ?? null },
       });
     }
 
+    const parts: string[] = [];
+    parts.push(`${mailResult.emails.length} correos encontrados en el servidor`);
+    if (newCount > 0) parts.push(`${newCount} nuevos procesados`);
+    if (skippedCount > 0) parts.push(`${skippedCount} ya existían (idempotencia R7)`);
+    if (proposalCount > 0) parts.push(`${proposalCount} propuestas de alta generadas`);
+
     return NextResponse.json({
       ok: true,
-      message: `Sync de correo exitoso: ${processedCount} mensajes nuevos, ${vinculadosCount} propuestas de alta generadas.`,
-      tone: "ok"
+      message: `Sync completado: ${parts.join(", ")}.`,
+      tone: newCount > 0 ? "ok" : "warn",
     });
-
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Error desconocido";
-    return NextResponse.json({ ok: false, message: `Error en sync de correo: ${msg}`, tone: "error" });
+    return NextResponse.json({ ok: false, message: `Error en sync: ${msg}`, tone: "error" });
   }
 }

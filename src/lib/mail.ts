@@ -1,14 +1,18 @@
 /* ------------------------------------------------------------------ */
 /*  MÓDULO DE CORREO UNIVERSAL (IMAP)                                  */
 /*  Diseño flexible para conectar cualquier proveedor de correo.       */
+/*                                                                     */
+/*  ESTRATEGIA DE DEDUPLICACIÓN:                                       */
+/*  No dependemos del flag SEEN/UNSEEN de Gmail porque el usuario      */
+/*  puede abrir el correo antes de que el sistema lo sincronice.       */
+/*  En su lugar, buscamos TODOS los correos dentro de la ventana       */
+/*  de tiempo y usamos el externalId en la BD para evitar duplicados   */
+/*  (R7 — idempotencia).                                               */
 /* ------------------------------------------------------------------ */
 
 import { ImapFlow } from "imapflow";
 import { simpleParser, type ParsedMail } from "mailparser";
 
-/** 
- * Configuración de conexión leída directamente de process.env 
- */
 function getMailConfig() {
   const host = process.env.MAIL_IMAP_HOST;
   const port = process.env.MAIL_IMAP_PORT ? parseInt(process.env.MAIL_IMAP_PORT, 10) : 993;
@@ -34,7 +38,7 @@ export type InboundEmail = {
   receivedAt: Date;
 };
 
-function mapParsedMailToInbound(uid: number, parsed: ParsedMail): InboundEmail {
+function mapParsedMail(uid: number, parsed: ParsedMail): InboundEmail {
   return {
     externalId: uid.toString(),
     fromName: parsed.from?.value?.[0]?.name || parsed.from?.text || "Desconocido",
@@ -45,11 +49,6 @@ function mapParsedMailToInbound(uid: number, parsed: ParsedMail): InboundEmail {
   };
 }
 
-/**
- * Conecta al servidor y descarga los correos no leídos dentro de una
- * ventana de tiempo configurable. Evita sobrecargar el sistema con
- * años de historial del inbox.
- */
 export async function fetchInbox(): Promise<{ ok: boolean; emails: InboundEmail[]; error?: string }> {
   const config = getMailConfig();
   const emails: InboundEmail[] = [];
@@ -81,27 +80,28 @@ export async function fetchInbox(): Promise<{ ok: boolean; emails: InboundEmail[
       const sinceDate = new Date();
       sinceDate.setDate(sinceDate.getDate() - lookbackDays);
 
-      const searchCriteria = {
-        unseen: true,
-        since: sinceDate,
-      } as const;
+      // Buscar TODOS los correos dentro de la ventana (leídos y no leídos).
+      // La deduplicación la hace la BD con externalId (R7).
+      const searchCriteria = { since: sinceDate };
 
-      let count = 0;
-      const MAX_EMAILS_PER_SYNC = 50;
+        // 1. Buscar todos los UIDs que estén dentro de la ventana de tiempo
+        const searchResult = await client.search(searchCriteria);
+        const allUids = Array.isArray(searchResult) ? searchResult : [];
 
-      for await (const message of client.fetch(searchCriteria, { source: true, envelope: true })) {
-        if (count >= MAX_EMAILS_PER_SYNC) break;
-        count++;
-
-        // Hay proveedores/servidores que pueden devolver items sin source.
-        // En ese caso, se ignora el correo en vez de romper toda la sync.
-        if (!message.source) {
-          continue;
+        if (allUids.length === 0) {
+        return { ok: true, emails };
         }
 
+        const MAX_EMAILS_PER_SYNC = 50;
+        const recentUids = allUids.slice(-MAX_EMAILS_PER_SYNC);
+        const orderedRecentUids = [...recentUids].reverse();
+
+        for await (const message of client.fetch(orderedRecentUids, { source: true, envelope: true })) {
+        if (!message.source) continue;
+
         const parsed = await simpleParser(message.source as Buffer);
-        emails.push(mapParsedMailToInbound(message.uid, parsed));
-      }
+        emails.push(mapParsedMail(message.uid, parsed));
+        }
     } finally {
       lock.release();
     }
@@ -114,4 +114,5 @@ export async function fetchInbox(): Promise<{ ok: boolean; emails: InboundEmail[
     return { ok: false, emails: [], error: msg };
   }
 }
+
 
