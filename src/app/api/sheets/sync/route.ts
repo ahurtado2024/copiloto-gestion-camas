@@ -10,15 +10,22 @@ import { db } from "@/db";
 import { beds } from "@/db/schema";
 import { readSheet, diffSheetVsDb } from "@/lib/sheets";
 import { openConflict, logEvent } from "@/lib/engine";
-import { IS_DEMO } from "@/env";
 
 export const dynamic = "force-dynamic";
 
+function isRealMode(): boolean {
+  return !!(
+    process.env.GOOGLE_SHEETS_SERVICE_ACCOUNT_EMAIL &&
+    process.env.GOOGLE_SHEETS_PRIVATE_KEY &&
+    process.env.GOOGLE_SHEETS_SPREADSHEET_ID
+  );
+}
+
 export async function POST() {
   const now = new Date();
+  const realMode = isRealMode();
 
   try {
-    // 1. Leer la hoja (real o simulada según configuración)
     const sheetResult = await readSheet();
     if (!sheetResult.ok) {
       return NextResponse.json({
@@ -28,23 +35,13 @@ export async function POST() {
       });
     }
 
-    // 2. Leer el estado actual del registro
     const dbBeds = await db.select({ code: beds.code, status: beds.status }).from(beds);
-
-    // 3. Calcular diferencias
     const diffs = diffSheetVsDb(sheetResult.rows, dbBeds);
     const conflicts = diffs.filter((d) => d.hasConflict);
     const matches = diffs.filter((d) => !d.hasConflict);
 
-    // 4. Para cada diferencia → abrir conflicto (R3, no sobreescribir en silencio)
     let conflictsOpened = 0;
     for (const diff of conflicts) {
-      const bed = dbBeds.find((b) => b.code === diff.code);
-      if (!bed) continue;
-      const bedRow = await db.select().from(beds).limit(1);
-      if (!bedRow[0]) continue;
-
-      // Buscar el bed completo para obtener el ID
       const fullBed = (await db.select().from(beds)).find((b) => b.code === diff.code);
       if (!fullBed) continue;
 
@@ -52,7 +49,7 @@ export async function POST() {
         bedId: fullBed.id,
         sourceA: "registro paralelo (Supabase)",
         valueA: diff.dbStatus,
-        sourceB: `hoja del turno (Sheets)`,
+        sourceB: "hoja del turno (Sheets)",
         valueB: diff.sheetRaw,
       });
 
@@ -61,23 +58,22 @@ export async function POST() {
       }
     }
 
-    // 5. Registrar la sincronización en la caja negra
     await logEvent({
       actor: "sistema",
       source: "hoja",
-      kind: IS_DEMO ? "dato_reconfirmado" : "dato_reconfirmado",
+      kind: "dato_reconfirmado",
       summary:
         `Sincronización con la hoja del turno: ` +
         `${sheetResult.rows.length} filas leídas, ` +
         `${matches.length} coincidencias, ` +
         `${conflictsOpened} conflictos abiertos. ` +
-        (IS_DEMO ? "[MODO DEMO — hoja simulada]" : `[Spreadsheet: ${sheetResult.spreadsheetId}]`),
+        (realMode ? `[Spreadsheet: ${sheetResult.spreadsheetId}]` : "[MODO DEMO — hoja simulada]"),
       payload: {
         readAt: sheetResult.readAt.toISOString(),
         rows: sheetResult.rows.length,
         matches: matches.length,
         conflictsOpened,
-        isDemo: IS_DEMO,
+        realMode,
       },
     });
 
@@ -93,7 +89,7 @@ export async function POST() {
         rows: sheetResult.rows.length,
         matches: matches.length,
         conflictsOpened,
-        isDemo: IS_DEMO,
+        realMode,
       },
     });
   } catch (error) {
@@ -106,14 +102,14 @@ export async function POST() {
 }
 
 export async function GET() {
-  // Vista de estado de la integración
+  const realMode = isRealMode();
   const sheetResult = await readSheet();
   return NextResponse.json({
     ok: sheetResult.ok,
-    isDemo: IS_DEMO,
+    realMode,
     lastRead: sheetResult.readAt.toISOString(),
     rowsAvailable: sheetResult.rows.length,
-    integration: IS_DEMO ? "simulada" : "real",
+    integration: realMode ? "real" : "simulada",
     spreadsheetId: sheetResult.spreadsheetId ?? null,
     sheetName: sheetResult.sheetName ?? null,
     error: sheetResult.error ?? null,

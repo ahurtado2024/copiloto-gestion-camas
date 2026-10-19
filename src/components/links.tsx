@@ -1,15 +1,44 @@
 import Link from "next/link";
 import { BedDouble, Mail, MessageSquare, SendHorizontal, ArrowUpRight } from "lucide-react";
 
+/* ------------------------------------------------------------------ */
+/*  COMPONENTES DE INTERCONEXIÓN                                       */
+/*                                                                     */
+/*  REGLA DE ORO DEL HTML:                                             */
+/*  Un <a> NO puede contener otro <a>.                                 */
+/*                                                                     */
+/*  Por eso existen DOS variantes para cada entidad:                   */
+/*                                                                     */
+/*  1. XxxLink  → genera <a>. Usar FUERA de otros enlaces.             */
+/*  2. XxxLabel → genera <span>. Usar DENTRO de enlaces/cards.         */
+/*                                                                     */
+/*  Si estás dentro de un <Link>, usa la variante Label.               */
+/*  Si estás en texto suelto o en una celda, usa la variante Link.     */
+/* ------------------------------------------------------------------ */
+
+/* -------- CAMA -------- */
+
+/** Enlace a detalle de cama. NO usar dentro de otro <Link> o <a>. */
 export function BedLink({ code, className = "" }: { code: string; className?: string }) {
   return (
     <Link href={`/camas/${encodeURIComponent(code)}`} title={`Ver detalle de ${code}`}
-      className={`mono group inline-flex items-center gap-0.5 font-bold text-emerald-700 transition hover:text-emerald-600 ${className}`}>
-      {code}<ArrowUpRight size={10} className="opacity-0 transition group-hover:opacity-100" />
+      className={`mono inline-flex items-center gap-0.5 font-bold text-emerald-700 transition hover:text-emerald-600 ${className}`}>
+      {code}
+      <ArrowUpRight size={10} className="opacity-0 transition group-hover:opacity-100" />
     </Link>
   );
 }
 
+/** Texto decorado de cama. Seguro DENTRO de otro <Link> o <a>. */
+export function BedLabel({ code, className = "" }: { code: string; className?: string }) {
+  return (
+    <span className={`mono font-bold text-emerald-700 ${className}`}>
+      {code}
+    </span>
+  );
+}
+
+/** Chip/badge de cama con enlace. NO usar dentro de otro <Link>. */
 export function BedChip({ code }: { code: string }) {
   return (
     <Link href={`/camas/${encodeURIComponent(code)}`}
@@ -19,15 +48,29 @@ export function BedChip({ code }: { code: string }) {
   );
 }
 
+/* -------- TAREA DE LIMPIEZA -------- */
+
+/** Enlace a detalle de tarea. NO usar dentro de otro <Link>. */
 export function TaskLink({ code }: { code: string }) {
   return (
     <Link href={`/limpieza/${encodeURIComponent(code)}`} title={`Ver ciclo ${code}`}
       className="mono inline-flex items-center gap-0.5 font-semibold text-sky-700 transition hover:text-sky-600">
-      {code}<ArrowUpRight size={10} className="opacity-60" />
+      {code}
+      <ArrowUpRight size={10} className="opacity-60" />
     </Link>
   );
 }
 
+/** Texto decorado de tarea. Seguro DENTRO de otro <Link>. */
+export function TaskLabel({ code }: { code: string }) {
+  return (
+    <span className="mono font-semibold text-sky-700">{code}</span>
+  );
+}
+
+/* -------- MENSAJE -------- */
+
+/** Enlace a detalle de mensaje. NO usar dentro de otro <Link>. */
 export function MessageRef({ id, label }: { id: number; label: string }) {
   return (
     <Link href={`/bandeja/${id}`}
@@ -36,6 +79,8 @@ export function MessageRef({ id, label }: { id: number; label: string }) {
     </Link>
   );
 }
+
+/* -------- CANAL -------- */
 
 export const CHANNEL_META: Record<string, { label: string; short: string; bar: string; chip: string; soft: string; iconColor: string }> = {
   correo:   { label: "Correo institucional", short: "CORREO",   bar: "bg-amber-400",   chip: "bg-amber-50 text-amber-700",   soft: "border-amber-200 bg-amber-50",   iconColor: "text-amber-600" },
@@ -59,3 +104,4 @@ export function ChannelBadge({ channel, size = "md" }: { channel: string; size?:
 export function channelBar(channel: string): string {
   return (CHANNEL_META[channel] ?? CHANNEL_META.sistema).bar;
 }
+

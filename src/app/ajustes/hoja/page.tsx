@@ -3,7 +3,6 @@ import Link from "next/link";
 import { readSheet, diffSheetVsDb } from "@/lib/sheets";
 import { db } from "@/db";
 import { beds } from "@/db/schema";
-import { IS_DEMO, HAS_SHEETS } from "@/env";
 import { PageHeader, Panel, PanelTitle, EmptyState } from "@/components/ui";
 import { ago } from "@/lib/time";
 import { Refresher } from "@/components/client";
@@ -13,6 +12,14 @@ export const dynamic = "force-dynamic";
 
 export default async function HojaPage() {
   const now = new Date();
+
+  // Leer configuración DIRECTAMENTE de process.env en cada request
+  const hasSheets = !!(
+    process.env.GOOGLE_SHEETS_SERVICE_ACCOUNT_EMAIL &&
+    process.env.GOOGLE_SHEETS_PRIVATE_KEY &&
+    process.env.GOOGLE_SHEETS_SPREADSHEET_ID
+  );
+
   const sheetResult = await readSheet();
   const dbBeds = await db.select({ code: beds.code, status: beds.status }).from(beds);
   const diffs = diffSheetVsDb(sheetResult.rows, dbBeds);
@@ -29,7 +36,7 @@ export default async function HojaPage() {
         actions={<SheetSyncButton />}
       />
 
-      {IS_DEMO && (
+      {!hasSheets && (
         <div className="rise mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
           <Info size={16} className="mt-0.5 shrink-0 text-amber-600" />
           <div className="text-[12.5px] leading-relaxed text-amber-800">
@@ -40,7 +47,7 @@ export default async function HojaPage() {
         </div>
       )}
 
-      {!IS_DEMO && HAS_SHEETS && (
+      {hasSheets && (
         <div className="rise mb-4 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
           <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-600" />
           <div className="text-[12.5px] leading-relaxed text-emerald-800">
@@ -159,6 +166,35 @@ export default async function HojaPage() {
               <p className="text-[11px] leading-relaxed text-[var(--color-text-muted)]">
                 Editar <code className="mono rounded bg-slate-100 px-1">SHEET_STATUS_MAP</code> en <code>sheets.ts</code> para agregar los términos exactos que usa tu equipo.
               </p>
+            </div>
+          </Panel>
+
+          <Panel className="rise rise-3 p-4">
+            <div className="flex items-start gap-3">
+              <RefreshCw size={15} className="mt-0.5 shrink-0 text-sky-600" />
+              <div>
+                <div className="text-[12.5px] font-bold text-[var(--color-text)]">Plantilla de hoja del turno</div>
+                <p className="mt-1 text-[11px] leading-relaxed text-[var(--color-text-muted)]">
+                  Descarga la plantilla CSV con la estructura que el copiloto espera leer.
+                  Súbela a Google Drive como Google Sheet, ajusta los datos a tu red real,
+                  y luego compártela con el robot del paso anterior.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <a
+                    href="/plantilla-hoja-turno.csv"
+                    download="plantilla-hoja-turno.csv"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-[12px] font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+                  >
+                    <ExternalLink size={13} /> Descargar plantilla CSV
+                  </a>
+                  <a
+                    href="/ajustes/docs"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-white px-3.5 py-2 text-[12px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-surface)]"
+                  >
+                    <Info size={13} /> Ver guía Etapa 4
+                  </a>
+                </div>
+              </div>
             </div>
           </Panel>
 

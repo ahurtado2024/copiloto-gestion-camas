@@ -20,7 +20,7 @@ import { BED_STATE_META, BED_STATUSES, APPROVAL_KIND_LABEL, EVENT_KIND_LABEL } f
 import { ago, duration, longDate } from "@/lib/time";
 import { PageHeader, Panel, PanelTitle, Stat, BedStateBadge, ApprovalKindChip, EmptyState, EventDot, Bars } from "@/components/ui";
 import { ActionButton, ApproveRejectButtons, Refresher } from "@/components/client";
-import { BedLink, TaskLink } from "@/components/links";
+import { BedLink, BedLabel, TaskLink } from "@/components/links";
 
 export const dynamic = "force-dynamic";
 
@@ -240,21 +240,25 @@ export default async function Tablero() {
               )}
               {escalatedTasks.map((t) => (
                 <Link key={t.id} href={`/limpieza/${encodeURIComponent(t.code)}`} className="flex items-start gap-3 px-4 py-3 transition hover:bg-white/[0.02]">
-                  <Flame size={14} className={t.priority === "critica" ? "mt-0.5 text-rose-400" : "mt-0.5 text-amber-400"} />
-                  <div>
-                    <div className="text-[12px] font-semibold text-slate-100">{t.code} sin aceptación — {t.priority.toUpperCase()}</div>
-                    <div className="text-[10.5px] text-slate-500">
-                      {t.bedCode} · {t.unit} · aviso salió {t.notifiedAt ? ago(t.notifiedAt, now) : "—"} · supera el SLA de {rules.CLEANING_ACCEPT_SLA_MIN} min
+                  <Flame size={14} className={t.priority === "critica" ? "mt-0.5 shrink-0 text-rose-400" : "mt-0.5 shrink-0 text-amber-400"} />
+                  <div className="min-w-0">
+                    <div className="text-[12px] font-semibold text-[var(--color-text)]">{t.code} sin aceptación — {t.priority.toUpperCase()}</div>
+                    <div className="truncate text-[10.5px] text-[var(--color-text-muted)]">
+                      <BedLabel code={t.bedCode} /> · {t.unit} · aviso salió {t.notifiedAt ? ago(t.notifiedAt, now) : "—"} · supera SLA de {rules.CLEANING_ACCEPT_SLA_MIN} min
                     </div>
                   </div>
                 </Link>
               ))}
               {openConflicts.map((c) => (
                 <Link key={c.id} href="/conflictos" className="flex items-start gap-3 px-4 py-3 transition hover:bg-white/[0.02]">
-                  <AlertTriangle size={14} className="mt-0.5 text-rose-400" />
-                  <div>
-                    <div className="text-[12px] font-semibold text-slate-100">Conflicto C-{c.id} sobre <BedLink code={c.bedCode} /></div>
-                    <div className="text-[10.5px] text-slate-500">{c.sourceA} dice «{labelDe(c.valueA)}» · {c.sourceB} dice «{labelDe(c.valueB)}» — congelado</div>
+                  <AlertTriangle size={14} className="mt-0.5 shrink-0 text-rose-400" />
+                  <div className="min-w-0">
+                    <div className="text-[12px] font-semibold text-[var(--color-text)]">
+                      Conflicto C-{c.id} sobre <BedLabel code={c.bedCode} />
+                    </div>
+                    <div className="truncate text-[10.5px] text-[var(--color-text-muted)]">
+                      {c.sourceA} dice «{labelDe(c.valueA)}» · {c.sourceB} dice «{labelDe(c.valueB)}» — congelado
+                    </div>
                   </div>
                 </Link>
               ))}
