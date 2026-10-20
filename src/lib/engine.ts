@@ -1130,3 +1130,4 @@ export async function closeShift(actor: string, horizonHours?: number): Promise<
   });
   return ok(`Informe "${report.label}" generado desde la caja negra. El relevo puede operar sin llamada telefónica.`);
 }
+

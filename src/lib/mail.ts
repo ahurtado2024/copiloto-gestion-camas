@@ -1,13 +1,12 @@
 /* ------------------------------------------------------------------ */
 /*  MÓDULO DE CORREO UNIVERSAL (IMAP)                                  */
-/*  Diseño flexible para conectar cualquier proveedor de correo.       */
+/*  Flexible para Gmail, Outlook, corporativo, etc.                    */
 /*                                                                     */
-/*  ESTRATEGIA DE DEDUPLICACIÓN:                                       */
-/*  No dependemos del flag SEEN/UNSEEN de Gmail porque el usuario      */
-/*  puede abrir el correo antes de que el sistema lo sincronice.       */
-/*  En su lugar, buscamos TODOS los correos dentro de la ventana       */
-/*  de tiempo y usamos el externalId en la BD para evitar duplicados   */
-/*  (R7 — idempotencia).                                               */
+/*  Estrategia:                                                        */
+/*  - lee desde IMAP                                                   */
+/*  - toma una ventana temporal configurable (por defecto 90 días)     */
+/*  - procesa los 50 correos MÁS RECIENTES de esa ventana              */
+/*  - la deduplicación la hace la BD con externalId (R7)               */
 /* ------------------------------------------------------------------ */
 
 import { ImapFlow } from "imapflow";
@@ -80,28 +79,23 @@ export async function fetchInbox(): Promise<{ ok: boolean; emails: InboundEmail[
       const sinceDate = new Date();
       sinceDate.setDate(sinceDate.getDate() - lookbackDays);
 
-      // Buscar TODOS los correos dentro de la ventana (leídos y no leídos).
-      // La deduplicación la hace la BD con externalId (R7).
       const searchCriteria = { since: sinceDate };
+      const searchResult = await client.search(searchCriteria);
+      const allUids: number[] = Array.isArray(searchResult) ? searchResult : [];
 
-        // 1. Buscar todos los UIDs que estén dentro de la ventana de tiempo
-        const searchResult = await client.search(searchCriteria);
-        const allUids = Array.isArray(searchResult) ? searchResult : [];
-
-        if (allUids.length === 0) {
+      if (allUids.length === 0) {
         return { ok: true, emails };
-        }
+      }
 
-        const MAX_EMAILS_PER_SYNC = 50;
-        const recentUids = allUids.slice(-MAX_EMAILS_PER_SYNC);
-        const orderedRecentUids = [...recentUids].reverse();
+      const MAX_EMAILS_PER_SYNC = 50;
+      const recentUids = allUids.slice(-MAX_EMAILS_PER_SYNC);
+      const orderedRecentUids = [...recentUids].reverse();
 
-        for await (const message of client.fetch(orderedRecentUids, { source: true, envelope: true })) {
+      for await (const message of client.fetch(orderedRecentUids, { source: true, envelope: true })) {
         if (!message.source) continue;
-
         const parsed = await simpleParser(message.source as Buffer);
         emails.push(mapParsedMail(message.uid, parsed));
-        }
+      }
     } finally {
       lock.release();
     }
@@ -114,5 +108,6 @@ export async function fetchInbox(): Promise<{ ok: boolean; emails: InboundEmail[
     return { ok: false, emails: [], error: msg };
   }
 }
+
 
 
