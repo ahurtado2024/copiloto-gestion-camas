@@ -321,6 +321,39 @@ export async function proposeDischarge(opts: {
     approvalId: ap.id,
     payload: { detectedAt: now.toISOString(), origin: opts.origin, messageId: opts.messageId ?? null },
   });
+
+  // Notificación proactiva a Turno por Telegram
+  try {
+    const { notifyNewProposal } = await import("./telegram");
+    const tg = await notifyNewProposal({
+      bedCode: bed.code,
+      unit: bed.unit,
+      source: opts.origin,
+      approvalCode: code,
+    });
+
+    await logEvent({
+      actor: "sistema",
+      source: "telegram",
+      kind: tg.ok ? "consulta_respondida" : "escritura_bloqueada",
+      summary: tg.ok
+        ? `Telegram Turno: propuesta ${code} notificada para ${bed.code}.`
+        : `Telegram Turno FALLÓ para propuesta ${code} (${bed.code}): ${tg.message ?? "sin detalle"}.`,
+      bedId: bed.id,
+      approvalId: ap.id,
+      payload: { telegram: tg },
+    });
+  } catch (error) {
+    await logEvent({
+      actor: "sistema",
+      source: "telegram",
+      kind: "escritura_bloqueada",
+      summary: `Telegram Turno lanzó excepción al notificar ${code} (${bed.code}): ${error instanceof Error ? error.message : "desconocido"}.`,
+      bedId: bed.id,
+      approvalId: ap.id,
+    });
+  }
+
   return ok(`Alta detectada en ${bed.code}. Propuesta ${code} creada — vence ${R.DISCHARGE_APPROVAL_TTL_MIN} min. Nada se mueve sin tu confirmación.`);
 }
 
@@ -475,6 +508,38 @@ export async function decideApproval(opts: {
       taskId: task.id,
       payload: { m1_minutes: m1 },
     });
+
+    // Notificación proactiva a Aseo por Telegram
+    try {
+      const { notifyAseoNewTask } = await import("./telegram");
+      const tg = await notifyAseoNewTask({
+        bedCode: bed.code,
+        unit: bed.unit,
+        taskCode: task.code,
+      });
+
+      await logEvent({
+        actor: "sistema",
+        source: "telegram",
+        kind: tg.ok ? "limpieza_notificada" : "escritura_bloqueada",
+        summary: tg.ok
+          ? `Telegram Aseo: tarea ${task.code} enviada para ${bed.code} (${bed.unit}).`
+          : `Telegram Aseo FALLÓ para tarea ${task.code} (${bed.code}): ${tg.message ?? "sin detalle"}.`,
+        bedId: bed.id,
+        taskId: task.id,
+        payload: { telegram: tg },
+      });
+    } catch (error) {
+      await logEvent({
+        actor: "sistema",
+        source: "telegram",
+        kind: "escritura_bloqueada",
+        summary: `Telegram Aseo lanzó excepción al notificar tarea ${task.code} (${bed.code}): ${error instanceof Error ? error.message : "desconocido"}.`,
+        bedId: bed.id,
+        taskId: task.id,
+      });
+    }
+
     return ok(`Alta confirmada. ${code} creada y avisada a aseo por ${R.CANAL_ASEO} hace segundos — salto detección→aviso en ${m1} min. Te aviso si nadie la toma en ${R.CLEANING_ACCEPT_SLA_MIN} min.`);
   }
 
