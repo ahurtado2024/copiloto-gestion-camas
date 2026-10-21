@@ -21,6 +21,20 @@ export const establishments = pgTable("establishments", {
   kind: text("kind").notNull(), // hospital | sar | clinica
 });
 
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  name: text("name").notNull(),
+  passwordHash: text("password_hash").notNull(),
+  role: text("role").notNull().default("viewer"),
+  establishmentId: integer("establishment_id").references(() => establishments.id),
+  isActive: integer("is_active").notNull().default(1),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  lastLoginAt: timestamp("last_login_at", { withTimezone: true, mode: "date" }),
+});
+
+export type User = typeof users.$inferSelect;
+
 export const beds = pgTable(
   "beds",
   {
@@ -194,3 +208,7 @@ export type Message = typeof messages.$inferSelect;
 export type OpsEvent = typeof events.$inferSelect;
 export type Establishment = typeof establishments.$inferSelect;
 export type ShiftReport = typeof shiftReports.$inferSelect;
+export type Contact = typeof contacts.$inferSelect;
+export type Setting = typeof settings.$inferSelect;
+
+

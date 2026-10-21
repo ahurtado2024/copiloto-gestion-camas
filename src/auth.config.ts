@@ -36,20 +36,24 @@ const authConfig = {
     },
 
     async jwt({ token, user }) {
-      if (user) {
-        token.role = (user as Record<string, unknown>).role as string;
-        token.userId = user.id;
-      }
-      return token;
-    },
+        if (user) {
+          token.role = (user as any).role;
+          token.userId = (user as any).id;
+          token.name = user.name;
+          token.email = user.email;
+        }
+        return token;
+      },
 
     async session({ session, token }) {
-      if (session.user) {
-        (session.user as Record<string, unknown>).role = token.role;
-        (session.user as Record<string, unknown>).id = token.userId;
-      }
-      return session;
-    },
+        if (session.user) {
+          // En NextAuth 5 (beta), la forma correcta de extender el objeto es via 'any'
+          // para evitar conflictos con la interfaz estricta AdapterUser.
+          (session.user as any).role = token.role;
+          (session.user as any).id = token.userId;
+        }
+        return session;
+      },
   },
   providers: [],
 } satisfies NextAuthConfig;
