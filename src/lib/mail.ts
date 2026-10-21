@@ -32,6 +32,7 @@ export type InboundEmail = {
   externalId: string;
   fromName: string;
   fromAddress: string;
+  smtpMessageId: string;
   subject: string;
   body: string;
   receivedAt: Date;
@@ -42,6 +43,7 @@ function mapParsedMail(uid: number, parsed: ParsedMail): InboundEmail {
     externalId: uid.toString(),
     fromName: parsed.from?.value?.[0]?.name || parsed.from?.text || "Desconocido",
     fromAddress: parsed.from?.value?.[0]?.address || "",
+    smtpMessageId: parsed.messageId || "",
     subject: parsed.subject || "(Sin asunto)",
     body: parsed.text || parsed.html?.toString() || "",
     receivedAt: parsed.date || new Date(),

@@ -626,42 +626,44 @@ export async function decideApproval(opts: {
 
     const draftBody = (ap.payload as { draftBody?: string }).draftBody ?? "(sin contenido)";
 
-    // --- ENVÍO REAL POR SMTP ---
-    let smtpResult = { ok: true, messageId: "simulado-id" };
+        // --- ENVÍO REAL POR SMTP CON THREADING ---
+        let smtpResult = { ok: true, messageId: "simulado-id" };
     
-    // Solo intentamos envío real si el canal es correo
-    if (msg.channel === "correo") {
-      const { sendRealEmail } = await import("./smtp");
-      const res = await sendRealEmail({
-        to: (msg as any).fromAddress || msg.fromName, // Intentamos obtener el address
-        subject: `RE: ${msg.subject}`,
-        body: draftBody
-      });
-      if (!res.ok) {
-        return fail(`Fallo técnico al enviar el correo: ${res.error}. El borrador sigue disponible.`);
-      }
-      smtpResult = { ok: true, messageId: res.messageId || "ok" };
-    }
-
-    const [outbound] = await db
-      .insert(messages)
-      .values({
-        externalId: `OUT-${ap.code}-${Date.now()}`,
-        channel: msg.channel,
-        direction: "outbound",
-        fromName: `Copiloto Camas (autorizado por ${opts.actor})`,
-        subject: `RE: ${msg.subject}`,
-        body: draftBody,
-        receivedAt: now,
-        classification: "confirmacion",
-        extracted: {},
-        status: "enviado",
-        bedId: msg.bedId,
-        inReplyTo: msg.id,
-        handledBy: opts.actor,
-        handledAt: now,
-      })
-      .returning();
+        if (msg.channel === "correo") {
+          const { sendRealEmail } = await import("./smtp");
+          const res = await sendRealEmail({
+            to: msg.fromAddress || msg.fromName,
+            subject: `RE: ${msg.subject}`,
+            body: draftBody,
+            inReplyToMessageId: msg.smtpMessageId || undefined,
+          });
+          if (!res.ok) {
+            return fail(`Fallo técnico al enviar el correo: ${res.error}. El borrador sigue disponible.`);
+          }
+          smtpResult = { ok: true, messageId: res.messageId || "ok" };
+        }
+    
+        const [outbound] = await db
+          .insert(messages)
+          .values({
+            externalId: `OUT-${ap.code}-${Date.now()}`,
+            channel: msg.channel,
+            direction: "outbound",
+            fromName: `Copiloto Camas (autorizado por ${opts.actor})`,
+            fromAddress: process.env.MAIL_SMTP_USER || null,
+            smtpMessageId: smtpResult.messageId || null,
+            subject: `RE: ${msg.subject}`,
+            body: draftBody,
+            receivedAt: now,
+            classification: "confirmacion",
+            extracted: {},
+            status: "enviado",
+            bedId: msg.bedId,
+            inReplyTo: msg.id,
+            handledBy: opts.actor,
+            handledAt: now,
+          })
+          .returning();
 
     await db
       .update(messages)

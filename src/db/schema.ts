@@ -138,6 +138,7 @@ export const messages = pgTable(
     direction: text("direction").notNull().default("inbound"), // inbound | outbound
     fromName: text("from_name").notNull(),
     fromAddress: text("from_address"), // Email real para poder responder por SMTP
+    smtpMessageId: text("smtp_message_id"), // Message-ID SMTP original para threading de hilos
     subject: text("subject").notNull(),
     body: text("body").notNull(),
     receivedAt: timestamp("received_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
