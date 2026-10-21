@@ -14,7 +14,6 @@ import {
   BookOpen,
   TableProperties,
   Users,
-  LogOut,
 } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -22,6 +21,7 @@ import { loadCounts } from "@/lib/queries";
 import { auth } from "@/auth";
 import { hasPermission } from "@/lib/rbac";
 import { Nav, LiveClock } from "./client";
+import { SignOutButton } from "./signout-button";
 
 const ROLE_LABELS: Record<string, { label: string; color: string }> = {
   admin:      { label: "Admin",     color: "bg-rose-100 text-rose-700" },
@@ -154,13 +154,8 @@ export default async function Shell({ children }: { children: ReactNode }) {
                 </span>
               </div>
             </div>
-            {/* Cerrar sesión */}
-            <Link
-              href="/api/auth/signout"
-              className="mt-2 flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-[10.5px] text-[var(--color-text-muted)] transition hover:bg-[var(--color-sidebar-hover)] hover:text-red-600"
-            >
-              <LogOut size={11} /> Cerrar sesión
-            </Link>
+            {/* Cerrar sesión (client component — usa POST seguro de NextAuth) */}
+            <SignOutButton />
           </div>
         </div>
       </aside>
