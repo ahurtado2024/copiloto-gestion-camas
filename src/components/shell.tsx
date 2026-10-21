@@ -13,6 +13,7 @@ import {
   Bell,
   BookOpen,
   TableProperties,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -48,6 +49,7 @@ export default async function Shell({ children }: { children: ReactNode }) {
       label: "Memoria",
       items: [
         { href: "/bandeja", label: "Bandeja", icon: <Inbox size={16} />, badge: counts.pendDatos, tone: "amber" as const },
+        { href: "/agenda", label: "Agenda Red", icon: <Users size={16} /> },
         { href: "/turno", label: "Turno", icon: <FileText size={16} /> },
         { href: "/metricas", label: "Métricas", icon: <BarChart3 size={16} /> },
         { href: "/registro", label: "Caja negra", icon: <ScrollText size={16} /> },

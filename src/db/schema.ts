@@ -168,6 +168,17 @@ export const shiftReports = pgTable("shift_reports", {
   content: jsonb("content").$type<Record<string, unknown>>().notNull().default({}),
 });
 
+export const contacts = pgTable("contacts", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  name: text("name").notNull(),
+  organization: text("organization"), // Ej: Hospital Regional Rancagua
+  role: text("role"), // Ej: Jefe de Turno, Admisión
+  isPriority: integer("is_priority").notNull().default(0), // 1 = Prioritario, 0 = Normal
+  notes: text("notes"),
+  lastInteractionAt: timestamp("last_interaction_at", { withTimezone: true, mode: "date" }),
+});
+
 export const settings = pgTable("settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),

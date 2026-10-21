@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
+import { db } from "@/db";
+import { contacts } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import {
   bedAction,
   decideApproval,
@@ -112,6 +115,13 @@ export async function POST(req: Request) {
       case "close_shift":
         r = await closeShift(ACTOR);
         break;
+      case "save_contact": {
+        const id = Number(p.id);
+        const priority = Number(p.priority);
+        await db.update(contacts).set({ isPriority: priority }).where(eq(contacts.id, id));
+        r = ok(priority === 1 ? "Contacto marcado como prioritario." : "Prioridad removida del contacto.");
+        break;
+      }
       case "ping":
         await ensureMaintenance();
         r = { ok: true, message: "Sistema operativo", tone: "ok" };

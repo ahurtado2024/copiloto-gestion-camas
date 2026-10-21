@@ -36,7 +36,7 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
-  ],
+, "src/lib/executivets"  ],
   "exclude": [
     "node_modules"
   ]

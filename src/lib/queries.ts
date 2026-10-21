@@ -330,3 +330,23 @@ export async function loadTurno(now = new Date(), horizon?: number) {
     reports: reports as ShiftReport[],
   };
 }
+
+/**
+ * Genera un resumen ejecutivo de la capacidad actual para el Agente IA.
+ */
+export async function getSystemContextForAI(): Promise<string> {
+  const allBeds = await db.select().from(beds);
+  const activeTasks = await db.select().from(cleaningTasks).where(sql`${cleaningTasks.status} != 'completed'`);
+
+  const avail = allBeds.filter(b => b.status === 'available').map(b => `${b.code} (${b.unit})`).join(", ");
+  const pipeline = allBeds.filter(b => ["pending_cleaning", "cleaning", "pending_inspection"].includes(b.status)).length;
+
+  return `
+  ESTADO ACTUAL DE LA RED:
+  - Camas Disponibles Confirmadas: ${allBeds.filter(b => b.status === 'available').length} [${avail || "Ninguna"}]
+  - Camas en proceso de liberación: ${pipeline}
+  - Tareas de aseo activas: ${activeTasks.length}
+  - Total camas monitoreadas: ${allBeds.length}
+  `;
+}
+
