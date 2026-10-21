@@ -168,6 +168,20 @@ export const shiftReports = pgTable("shift_reports", {
   content: jsonb("content").$type<Record<string, unknown>>().notNull().default({}),
 });
 
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  name: text("name").notNull(),
+  passwordHash: text("password_hash").notNull(),
+  role: text("role").notNull().default("viewer"), // admin | encargada | aseo | jefatura | viewer
+  establishmentId: integer("establishment_id").references(() => establishments.id),
+  isActive: integer("is_active").notNull().default(1),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  lastLoginAt: timestamp("last_login_at", { withTimezone: true, mode: "date" }),
+});
+
+export type User = typeof users.$inferSelect;
+
 export const contacts = pgTable("contacts", {
   id: serial("id").primaryKey(),
   email: text("email").notNull().unique(),

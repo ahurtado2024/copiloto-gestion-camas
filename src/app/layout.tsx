@@ -5,6 +5,7 @@ import "./globals.css";
 import Shell from "@/components/shell";
 import { Toaster } from "@/components/client";
 
+
 const display = Space_Grotesk({
   subsets: ["latin"],
   variable: "--font-sgrotesk",
@@ -19,8 +20,7 @@ const mono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "Copiloto · Gestión de Camas — Red O'Higgins",
-  description:
-    "Auxiliar, paralelo y autorizado: lee, entiende, propone y registra.",
+  description: "Auxiliar, paralelo y autorizado: lee, entiende, propone y registra.",
 };
 
 export const dynamic = "force-dynamic";
@@ -29,7 +29,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="es-CL" className={`${display.variable} ${mono.variable}`}>
       <body className="gridbg min-h-screen antialiased">
-        <Shell>{children}</Shell>
+        {children}
         <Toaster />
       </body>
     </html>
