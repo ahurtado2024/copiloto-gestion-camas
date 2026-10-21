@@ -1,10 +1,13 @@
 import { AlertTriangle, Scale, Snowflake, CheckCircle2 } from "lucide-react";
+import { redirect } from "next/navigation";
 import { loadConflicts } from "@/lib/queries";
 import { BED_STATE_META, type BedStatus } from "@/lib/domain";
 import { ago, dayTime } from "@/lib/time";
 import { PageHeader, Panel, PanelTitle, BedStateBadge, EmptyState } from "@/components/ui";
 import { ResolveConflictWidget, Refresher } from "@/components/client";
 import { BedLink } from "@/components/links";
+import { getCurrentRole } from "@/lib/session";
+import { hasPermission } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +16,9 @@ function label(v: string) {
 }
 
 export default async function ConflictosPage() {
+  const role = await getCurrentRole();
+  if (!hasPermission(role, "conflicts:view")) redirect("/");
+
   const now = new Date();
   const { open, resolved } = await loadConflicts(now);
 

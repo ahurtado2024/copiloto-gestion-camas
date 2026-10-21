@@ -4,6 +4,8 @@ import { promisify } from "node:util";
 import { db } from "@/db";
 import { contacts } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { auth } from "@/auth";
+import { hasPermission } from "@/lib/rbac";
 import {
   bedAction,
   decideApproval,
@@ -48,32 +50,53 @@ export async function POST(req: Request) {
 
     const rules = await getRules();
     const ACTOR = rules.TURNO_ACTOR;
+    const session = await auth();
+    const role = (session?.user as any)?.role as string | undefined;
+
+    // helper local
+    const deny = (message: string) =>
+      NextResponse.json({ ok: false, message, tone: "error" }, { status: 200 });
 
     let r: OpResult;
 
     switch (body.op) {
       case "decide_approval": {
         const v = validateDecideApproval(p, ACTOR);
+        if (!hasPermission(role, "approvals:decide")) {
+          return deny("Tu rol no tiene permiso para decidir aprobaciones.");
+        }
         r = await decideApproval(v);
         break;
       }
       case "task": {
         const v = validateTaskAction(p, rules.CANAL_ASEO === "telegram" ? "Cuadrilla aseo" : ACTOR);
+        if (!hasPermission(role, "tasks:update")) {
+          return deny("Tu rol no tiene permiso para actualizar tareas de limpieza.");
+        }
         r = await taskAction(v);
         break;
       }
       case "bed": {
         const v = validateBedAction(p, ACTOR);
+        if (!hasPermission(role, "beds:mutate")) {
+          return deny("Tu rol no tiene permiso para modificar camas.");
+        }
         r = await bedAction(v);
         break;
       }
       case "resolve_conflict": {
         const v = validateResolveConflict(p, ACTOR);
+        if (!hasPermission(role, "conflicts:resolve")) {
+          return deny("Tu rol no tiene permiso para resolver conflictos.");
+        }
         r = await resolveConflict(v);
         break;
       }
       case "draft_reply": {
         const v = validateDraftReply(p, ACTOR);
+        if (!hasPermission(role, "mail:draft")) {
+          return deny("Tu rol no tiene permiso para preparar borradores.");
+        }
         r = await draftReply(v);
         break;
       }
@@ -90,6 +113,9 @@ export async function POST(req: Request) {
             kind: "config_actualizada",
             summary: `${v.actor} actualizó la configuración "${v.key}" → ${check.value}. El motor la aplica desde este instante.`,
           });
+          if (!hasPermission(role, "settings:edit")) {
+            return deny("Tu rol no tiene permiso para editar ajustes.");
+          }
           r = ok(`Configuración guardada: ${v.key} = ${check.value}. El motor la aplica desde ya — quedó en la caja negra.`);
         }
         break;
@@ -97,6 +123,9 @@ export async function POST(req: Request) {
       case "reset_demo": {
         try {
           await execAsync("npx tsx scripts/seed.ts", { cwd: process.cwd(), timeout: 90_000 });
+          if (!hasPermission(role, "settings:edit")) {
+            return deny("Tu rol no tiene permiso para ejecutar utilidades del sistema.");
+          }
           r = ok("Demo reiniciada: red, camas, ciclos, mensajes y configuración vuelven a su estado inicial ficticio.");
         } catch (e) {
           r = fail(`No se pudo reiniciar la demo (${e instanceof Error ? e.message.slice(0, 120) : "error"}). La hoja del turno nunca depende del sistema (R11).`);
@@ -104,15 +133,27 @@ export async function POST(req: Request) {
         break;
       }
       case "simulate_inbound":
+        if (!hasPermission(role, "settings:edit")) {
+          return deny("Tu rol no tiene permiso para ejecutar utilidades del sistema.");
+        }
         r = await simulateInbound();
         break;
       case "simulate_retry":
+        if (!hasPermission(role, "settings:edit")) {
+          return deny("Tu rol no tiene permiso para ejecutar utilidades del sistema.");
+        }
         r = await simulateRetry();
         break;
       case "capacity_query":
+        if (!hasPermission(role, "beds:view")) {
+          return deny("Tu rol no tiene permiso para consultar capacidad.");
+        }
         r = await capacityAnswer(ACTOR);
         break;
       case "close_shift":
+        if (!hasPermission(role, "turno:view")) {
+          return deny("Tu rol no tiene permiso para cerrar turno.");
+        }
         r = await closeShift(ACTOR);
         break;
       case "save_contact": {

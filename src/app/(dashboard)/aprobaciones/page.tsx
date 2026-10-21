@@ -1,4 +1,5 @@
 import { ShieldCheck, Hourglass, History, MailCheck } from "lucide-react";
+import { redirect } from "next/navigation";
 import { loadApprovals } from "@/lib/queries";
 import { APPROVAL_KIND_LABEL } from "@/lib/domain";
 import { ago, dayTime, minutesUntil } from "@/lib/time";
@@ -6,10 +7,15 @@ import { PageHeader, Panel, PanelTitle, ApprovalKindChip, ApprovalStatusChip, Em
 import { ApproveRejectButtons, Refresher } from "@/components/client";
 import { BedLink, TaskLink, MessageRef } from "@/components/links";
 import type { ApprovalView } from "@/lib/queries";
+import { getCurrentRole } from "@/lib/session";
+import { hasPermission } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
 export default async function AprobacionesPage() {
+  const role = await getCurrentRole();
+  if (!hasPermission(role, "approvals:view")) redirect("/");
+
   const now = new Date();
   const { pending, recent } = await loadApprovals(now);
 

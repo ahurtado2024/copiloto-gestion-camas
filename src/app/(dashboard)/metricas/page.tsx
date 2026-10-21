@@ -1,12 +1,18 @@
 import { BarChart3, TrendingDown, TrendingUp, Target, ClipboardList, Ban, CircleCheck, CircleX } from "lucide-react";
+import { redirect } from "next/navigation";
 import { computeMetrics } from "@/lib/metrics";
 import { duration } from "@/lib/time";
 import { PageHeader, Panel, PanelTitle, Bars } from "@/components/ui";
 import { Refresher } from "@/components/client";
+import { getCurrentRole } from "@/lib/session";
+import { hasPermission } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
 export default async function MetricasPage() {
+  const role = await getCurrentRole();
+  if (!hasPermission(role, "metrics:view")) redirect("/");
+
   const now = new Date();
   const m = await computeMetrics(now);
 

@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { beds, events, settings } from "@/db/schema";
+import { beds, events, settings, users } from "@/db/schema";
 import { sql } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +25,15 @@ export async function GET() {
   }
 
   try {
-    // 3. Configuración cargable
+    // 3. Usuarios configurados (Auth check)
+    const [userCount] = await db.select({ n: sql<number>`count(*)::int` }).from(users);
+    checks.auth_ready = (userCount?.n ?? 0) > 0;
+  } catch {
+    checks.auth_ready = false;
+  }
+
+  try {
+    // 4. Configuración cargable
     const rows = await db.select().from(settings);
     checks.config = rows.length > 0;
   } catch {
@@ -33,11 +41,18 @@ export async function GET() {
   }
 
   try {
-    // 4. Caja negra escribible (no insertamos de verdad, solo verificamos la tabla)
+    // 5. Caja negra escribible
     const [evCount] = await db.select({ n: sql<number>`count(*)::int` }).from(events);
     checks.audit_log = (evCount?.n ?? 0) >= 0;
   } catch {
     checks.audit_log = false;
+  }
+
+  try {
+    // 6. Secretos de sesión configurados
+    checks.secrets_ready = !!process.env.AUTH_SECRET;
+  } catch {
+    checks.secrets_ready = false;
   }
 
   const allOk = Object.values(checks).every(Boolean);

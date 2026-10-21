@@ -1,4 +1,5 @@
 import { Settings, Sliders, ShieldCheck, Database, AlertTriangle, Undo2 } from "lucide-react";
+import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { settings } from "@/db/schema";
 import { SETTING_DEFS } from "@/lib/config";
@@ -6,6 +7,8 @@ import { getRules } from "@/lib/config";
 import { PageHeader, Panel, PanelTitle } from "@/components/ui";
 import { SettingNum, SettingChoice, SettingText, ResetDemoButton, Refresher } from "@/components/client";
 import { ChannelBadge } from "@/components/links";
+import { getCurrentRole } from "@/lib/session";
+import { hasPermission } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +36,10 @@ const SOURCES: { name: string; role: string; can: string; cannot: string }[] = [
 ];
 
 export default async function AjustesPage() {
+  // PROTECCIÓN: solo roles con settings:view pueden entrar
+  const role = await getCurrentRole();
+  if (!hasPermission(role, "settings:view")) redirect("/");
+
   const rules = await getRules();
   const rows = await db.select().from(settings);
   const raw = new Map(rows.map((r) => [r.key, r.value]));

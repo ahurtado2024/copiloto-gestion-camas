@@ -1,14 +1,20 @@
-import { Users, Star, Building2, Mail, Clock3, Search } from "lucide-react";
+import { Users, Star, Building2, Mail, Clock3 } from "lucide-react";
+import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { contacts } from "@/db/schema";
 import { desc } from "drizzle-orm";
 import { PageHeader, Panel, PanelTitle, EmptyState } from "@/components/ui";
 import { ago } from "@/lib/time";
 import { ActionButton } from "@/components/client";
+import { getCurrentRole } from "@/lib/session";
+import { hasPermission } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
 export default async function AgendaPage() {
+  const role = await getCurrentRole();
+  if (!hasPermission(role, "agenda:view")) redirect("/");
+
   const allContacts = await db.select().from(contacts).orderBy(desc(contacts.isPriority), desc(contacts.lastInteractionAt));
 
   return (

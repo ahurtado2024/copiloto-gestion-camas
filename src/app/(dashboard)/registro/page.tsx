@@ -1,15 +1,21 @@
 import { ScrollText, Lock, Fingerprint } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { loadEvents } from "@/lib/queries";
 import { EVENT_KIND_LABEL } from "@/lib/domain";
 import { ago, dayTime } from "@/lib/time";
 import { PageHeader, Panel, EventDot, EmptyState } from "@/components/ui";
 import { Refresher } from "@/components/client";
 import { BedLink } from "@/components/links";
+import { getCurrentRole } from "@/lib/session";
+import { hasPermission } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
 export default async function RegistroPage({ searchParams }: { searchParams: Promise<{ cama?: string; tipo?: string }> }) {
+  const role = await getCurrentRole();
+  if (!hasPermission(role, "registro:view")) redirect("/");
+
   const sp = await searchParams;
   const now = new Date();
   const { events } = await loadEvents(now, 150);
