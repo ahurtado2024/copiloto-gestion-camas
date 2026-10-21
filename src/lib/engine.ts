@@ -252,6 +252,20 @@ export async function ensureMaintenance(now = new Date()) {
       });
     }
   }
+
+  // 5. Alertas de red (Contactos prioritarios sin responder)
+  try {
+    const { getPriorityAlerts } = await import("./executive");
+    const alerts = await getPriorityAlerts();
+    if (alerts.length > 0) {
+      const { sendMessage } = await import("./telegram");
+      const { env } = await import("@/env");
+      await sendMessage(process.env.TELEGRAM_CHAT_ID_TURNO!, 
+        `⚠️ <b>DEUDA DE RED:</b> Tienes ${alerts.length} correos de centros prioritarios esperando respuesta.`,
+        { disable_notification: true }
+      );
+    }
+  } catch (e) { /* Fallback silencioso */ }
 }
 
 /* ------------------------------------------------------------------ */
@@ -597,18 +611,38 @@ export async function decideApproval(opts: {
   if (ap.kind === "reply_draft") {
     const [msg] = await db.select().from(messages).where(eq(messages.id, ap.messageId ?? -1));
     if (!msg) return fail("El mensaje original ya no existe.");
+    
     if (opts.decision === "rejected") {
       await markDecided();
       await logEvent({
         actor: opts.actor,
         source: "panel",
         kind: "aprobacion_rechazada",
-        summary: `${opts.actor} descartó el borrador de respuesta a "${msg.subject}". El correo sigue pendiente en la bandeja.`,
+        summary: `${opts.actor} descartó el borrador de respuesta a "${msg.subject}".`,
         approvalId: ap.id,
       });
-      return ok("Borrador descartado. El correo original sigue pendiente y visible en la bandeja.");
+      return ok("Borrador descartado correctamente.");
     }
+
     const draftBody = (ap.payload as { draftBody?: string }).draftBody ?? "(sin contenido)";
+
+    // --- ENVÍO REAL POR SMTP ---
+    let smtpResult = { ok: true, messageId: "simulado-id" };
+    
+    // Solo intentamos envío real si el canal es correo
+    if (msg.channel === "correo") {
+      const { sendRealEmail } = await import("./smtp");
+      const res = await sendRealEmail({
+        to: (msg as any).fromAddress || msg.fromName, // Intentamos obtener el address
+        subject: `RE: ${msg.subject}`,
+        body: draftBody
+      });
+      if (!res.ok) {
+        return fail(`Fallo técnico al enviar el correo: ${res.error}. El borrador sigue disponible.`);
+      }
+      smtpResult = { ok: true, messageId: res.messageId || "ok" };
+    }
+
     const [outbound] = await db
       .insert(messages)
       .values({
@@ -628,21 +662,25 @@ export async function decideApproval(opts: {
         handledAt: now,
       })
       .returning();
+
     await db
       .update(messages)
       .set({ status: "atendido", handledBy: opts.actor, handledAt: now })
       .where(eq(messages.id, msg.id));
+
     await markDecided();
+
     await logEvent({
       actor: opts.actor,
       source: msg.channel,
       kind: "respuesta_enviada",
-      summary: `Respuesta enviada a "${msg.subject}" (${msg.fromName}) — autorizada por ${opts.actor}. Constancia: mensaje #${outbound.id}.`,
+      summary: `Respuesta enviada a "${msg.subject}" — autorizada por ${opts.actor}. (ID SMTP: ${smtpResult.messageId})`,
       bedId: msg.bedId,
       approvalId: ap.id,
-      payload: { messageId: msg.id, outboundId: outbound.id },
+      payload: { messageId: msg.id, outboundId: outbound.id, smtp: smtpResult },
     });
-    return ok(`Respuesta enviada con tu autorización. Quedó constancia de qué se envió, cuándo y quién lo aprobó.`);
+
+    return ok(`Correo enviado con éxito. Se guardó constancia en la caja negra y en el hilo del mensaje.`);
   }
 
   return fail("Tipo de propuesta desconocido.");
@@ -1130,4 +1168,5 @@ export async function closeShift(actor: string, horizonHours?: number): Promise<
   });
   return ok(`Informe "${report.label}" generado desde la caja negra. El relevo puede operar sin llamada telefónica.`);
 }
+
 

@@ -123,6 +123,7 @@ export const messages = pgTable(
     channel: text("channel").notNull(), // correo | telegram
     direction: text("direction").notNull().default("inbound"), // inbound | outbound
     fromName: text("from_name").notNull(),
+    fromAddress: text("from_address"), // Email real para poder responder por SMTP
     subject: text("subject").notNull(),
     body: text("body").notNull(),
     receivedAt: timestamp("received_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
@@ -167,20 +168,6 @@ export const shiftReports = pgTable("shift_reports", {
   horizonHours: integer("horizon_hours").notNull().default(12),
   content: jsonb("content").$type<Record<string, unknown>>().notNull().default({}),
 });
-
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  email: text("email").notNull().unique(),
-  name: text("name").notNull(),
-  passwordHash: text("password_hash").notNull(),
-  role: text("role").notNull().default("viewer"), // admin | encargada | aseo | jefatura | viewer
-  establishmentId: integer("establishment_id").references(() => establishments.id),
-  isActive: integer("is_active").notNull().default(1),
-  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
-  lastLoginAt: timestamp("last_login_at", { withTimezone: true, mode: "date" }),
-});
-
-export type User = typeof users.$inferSelect;
 
 export const contacts = pgTable("contacts", {
   id: serial("id").primaryKey(),

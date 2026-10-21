@@ -65,6 +65,7 @@ export async function POST() {
         channel: "correo",
         direction: "inbound",
         fromName: email.fromName,
+        fromAddress: email.fromAddress, // Guardamos el email para poder responder
         subject: email.subject,
         body: email.body.substring(0, 5000), // Limitar tamaño del body
         receivedAt: email.receivedAt,
