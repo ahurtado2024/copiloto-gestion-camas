@@ -9,6 +9,7 @@ import { messages } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { sendMessage } from "@/lib/telegram";
 import { processIncomingMessage } from "@/lib/assistant";
+import { proposeDischarge } from "@/lib/engine";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,40 @@ export async function POST(req: Request) {
           await sendMessage(chatId, `🗑 Correo #${msgId} descartado.`);
         } catch {
           await sendMessage(chatId, `❌ No se pudo descartar el correo #${msgId}.`);
+        }
+      }
+
+      // ─── Callback: Proponer Alta (Desde comando Camas Estancadas) ───
+      const proposeMatch = data.match(/^propose_discharge_(\d+)$/);
+      if (proposeMatch && chatId) {
+        const bedId = parseInt(proposeMatch[1], 10);
+        try {
+          const result = await proposeDischarge({ bedId, origin: "telegram" });
+          if (result.ok) {
+            await sendMessage(chatId, `✅ <b>Propuesta de alta creada.</b>\nEnviada al grupo de turno para confirmación formal.`);
+          } else {
+            await sendMessage(chatId, `❌ No se pudo crear la propuesta: ${result.message}`);
+          }
+        } catch (e) {
+          await sendMessage(chatId, "❌ Error del sistema al proponer el alta.");
+        }
+      }
+
+      // ─── Callback: Redactar Borrador (Desde correos pendientes) ───
+      const draftMatch = data.match(/^draft_reply_(\d+)$/);
+      if (draftMatch && chatId) {
+        const msgId = parseInt(draftMatch[1], 10);
+        try {
+          const { draftReply } = await import("@/lib/engine");
+          const result = await draftReply({ messageId: msgId, actor: "Telegram (Usuario)" });
+          
+          if (result.ok) {
+            await sendMessage(chatId, `✍️ <b>Borrador Listo</b>\n\nHe generado una propuesta de respuesta en el Copiloto.\nRevisa el panel de Aprobaciones para editar o enviar.`);
+          } else {
+            await sendMessage(chatId, `❌ ${result.message}`);
+          }
+        } catch (e) {
+          await sendMessage(chatId, "❌ Error al generar el borrador.");
         }
       }
 

@@ -14,7 +14,7 @@ import { getUnansweredEmails, getPriorityAlerts } from "./executive";
 import { getSystemContextForAI } from "./queries";
 import { db } from "@/db";
 import { messages, settings, beds } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, lte } from "drizzle-orm";
 import { resolveThread } from "./email-threading";
 import { fetchInbox } from "./mail";
 import { proposeDischarge } from "./engine";
@@ -281,20 +281,28 @@ export async function processIncomingMessage(opts: {
     return;
   }
 
-  // ─── COMANDO: correos prioritarios ────────────────────────────────
-  if (normalized.includes("correos importantes") || normalized.includes("correos prioritarios")) {
-    const alerts = await getPriorityAlerts();
-    if (alerts.length === 0) {
-      await sendMessage(opts.chatId, "✅ No hay correos pendientes de contactos prioritarios.");
+    // ─── COMANDO: correos prioritarios ────────────────────────────────
+    if (normalized.includes("correos importantes") || normalized.includes("correos prioritarios")) {
+      const alerts = await getPriorityAlerts();
+      if (alerts.length === 0) {
+        await sendMessage(opts.chatId, "✅ No hay correos pendientes de contactos prioritarios.");
+        return;
+      }
+      let report = `<b>⚠️ CORREOS PRIORITARIOS SIN RESPONDER</b>\n\n`;
+      alerts.slice(0, 8).forEach(a => {
+        report += `• <b>${a.fromName}</b>\n  ${a.subject}\n\n`;
+      });
+      
+      // Agregamos botones interactivos para gestionar estas alertas desde Telegram
+      await sendMessage(opts.chatId, report, {
+        reply_markup: {
+          inline_keyboard: alerts.slice(0, 3).map(a => [
+            { text: `✍️ Redactar respuesta a ${a.fromName.split(" ")[0]}`, callback_data: `draft_reply_${a.id}` }
+          ])
+        }
+      });
       return;
     }
-    let report = `<b>⚠️ CORREOS PRIORITARIOS SIN RESPONDER</b>\n\n`;
-    alerts.slice(0, 8).forEach(a => {
-      report += `• <b>${a.fromName}</b>\n  ${a.subject}\n  <a href="${appUrl}/bandeja/${a.id}">Ver →</a>\n\n`;
-    });
-    await sendMessage(opts.chatId, report);
-    return;
-  }
 
   // ─── COMANDO: disponibilidad / resumen ────────────────────────────
   if (
@@ -305,6 +313,55 @@ export async function processIncomingMessage(opts: {
   ) {
     const context = await getSystemContextForAI();
     await sendMessage(opts.chatId, context);
+    return;
+  }
+
+  // ─── COMANDO EJECUTIVO: Camas Estancadas / Auditoría ─────────────
+  if (
+    normalized.includes("camas estancadas") ||
+    normalized.includes("camas en uso") ||
+    normalized.includes("auditoria") ||
+    normalized.includes("auditoría")
+  ) {
+    await sendMessage(opts.chatId, "🔍 Buscando camas con estadía prolongada...");
+    
+    // Buscar camas ocupadas por más de 5 días
+    const daysThreshold = 5;
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysThreshold);
+
+    const staleBeds = await db.select()
+      .from(beds)
+      .where(
+        and(
+          eq(beds.status, "occupied"),
+          lte(beds.statusSince, cutoffDate)
+        )
+      );
+
+    if (staleBeds.length === 0) {
+      await sendMessage(opts.chatId, `✅ No hay camas ocupadas por más de ${daysThreshold} días sin movimiento.`);
+      return;
+    }
+
+    await sendMessage(opts.chatId, `⚠️ Encontré ${staleBeds.length} cama(s) ocupada(s) por más de ${daysThreshold} días:`);
+
+    for (const bed of staleBeds.slice(0, 10)) {
+      const daysInStatus = Math.round((Date.now() - bed.statusSince.getTime()) / (1000 * 60 * 60 * 24));
+      const text = `🛏 <b>Cama: ${bed.code}</b>\n` +
+                   `Unidad: ${bed.unit}\n` +
+                   `Estado: Ocupada por ${daysInStatus} días\n\n` +
+                   `¿Deseas proponer su liberación?`;
+      
+      await sendMessage(opts.chatId, text, {
+        reply_markup: {
+          inline_keyboard: [[
+            { text: "👁 Detectar Alta", callback_data: `propose_discharge_${bed.id}` }
+          ]]
+        }
+      });
+      await new Promise(r => setTimeout(r, 300)); // Rate limit
+    }
     return;
   }
 
