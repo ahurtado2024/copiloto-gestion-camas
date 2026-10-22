@@ -21,7 +21,6 @@ import {
   import { PageHeader, Panel, PanelTitle, Stat, BedStateBadge, EmptyState, EventDot, Bars } from "@/components/ui";
   import { ActionButton, ApproveRejectButtons, Refresher } from "@/components/client";
   import { BedLink, BedLabel, TaskLink } from "@/components/links";
-  import { auth } from "@/auth";
   
   export const dynamic = "force-dynamic";
   
@@ -34,9 +33,8 @@ import {
   
   export default async function Tablero() {
     const now = new Date();
-    const [session, rules, { beds, ests }, { active: activeTasks }, { pending: pendingApprovals }, { open: openConflicts }, { events: recent }, m] =
+    const [rules, { beds, ests }, { active: activeTasks }, { pending: pendingApprovals }, { open: openConflicts }, { events: recent }, m] =
       await Promise.all([
-        auth(),
         getRules(),
         loadBeds(now),
         loadTasks(now),
@@ -46,7 +44,7 @@ import {
         computeMetrics(now),
       ]);
   
-    const userName = session?.user?.name ?? rules.TURNO_ACTOR;
+    const userName = rules.TURNO_ACTOR;
     const freshAvailable = beds.filter((b) => b.status === "available" && !b.stale);
     const staleAvailable = beds.filter((b) => b.status === "available" && b.stale);
     const moving = beds.filter((b) => b.status !== "occupied" || b.stale || b.openConflictId !== null);

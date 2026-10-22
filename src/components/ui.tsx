@@ -24,10 +24,10 @@ export function Panel({ children, className = "" }: { children: ReactNode; class
 export function PanelTitle({ icon, title, sub, right }: { icon?: ReactNode; title: string; sub?: string; right?: ReactNode }) {
   return (
     <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-4">
-      {icon && <span className="text-gray-400">{icon}</span>}
+      {icon && <span className="text-gray-500">{icon}</span>}
       <div className="min-w-0">
-        <div className="truncate text-[14px] font-bold text-gray-800">{title}</div>
-        {sub && <div className="truncate text-[12px] font-medium text-gray-500">{sub}</div>}
+        <div className="truncate text-[15px] font-bold text-gray-900">{title}</div>
+        {sub && <div className="truncate text-[13px] font-semibold text-gray-500">{sub}</div>}
       </div>
       {right && <div className="ml-auto flex shrink-0 items-center gap-2">{right}</div>}
     </div>
@@ -37,9 +37,9 @@ export function PanelTitle({ icon, title, sub, right }: { icon?: ReactNode; titl
 export function EmptyState({ icon, title, desc }: { icon: ReactNode; title: string; desc: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-50 text-gray-400 border border-gray-100">{icon}</div>
-      <div className="text-[15px] font-bold text-gray-800">{title}</div>
-      <div className="max-w-xs text-[12px] leading-relaxed text-gray-500 font-medium">{desc}</div>
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-50 text-gray-500 border border-gray-100">{icon}</div>
+      <div className="text-[16px] font-bold text-gray-800">{title}</div>
+      <div className="max-w-xs text-[13px] leading-relaxed text-gray-600 font-medium">{desc}</div>
     </div>
   );
 }
@@ -105,11 +105,11 @@ export function Stat({ label, value, sub, tone = "default", icon }: { label: str
   return (
     <div className={`panel px-5 py-5 border-2 ${t.border} ${t.bg}`}>
       <div className="flex items-center justify-between mb-2">
-        <div className="mono text-[10px] font-bold uppercase tracking-[0.15em] text-gray-500">{label}</div>
+        <div className="mono text-[11px] font-black uppercase tracking-[0.12em] text-gray-600">{label}</div>
         <div className={t.sub}>{icon}</div>
       </div>
-      <div className={`text-[30px] font-black leading-none tabular-nums ${t.text}`}>{value}</div>
-      {sub && <div className={`mt-2 text-[12px] font-bold leading-tight ${t.sub}`}>{sub}</div>}
+      <div className={`text-[32px] font-black leading-none tabular-nums ${t.text}`}>{value}</div>
+      {sub && <div className={`mt-2 text-[13px] font-bold leading-tight ${t.sub}`}>{sub}</div>}
     </div>
   );
 }
@@ -192,3 +192,4 @@ export function EventDot({ kind }: { kind: string }) {
   const cls = tone === "danger" ? "bg-red-500" : tone === "warn" ? "bg-amber-500" : tone === "ok" ? "bg-emerald-500" : "bg-slate-300";
   return <span className={`mt-2 h-2 w-2 shrink-0 rounded-full ${cls}`} />;
 }
+

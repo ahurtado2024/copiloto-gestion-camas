@@ -10,9 +10,9 @@
   --color-border: #E5E7EB;
   --color-border-hover: #D1D5DB;
   
-  --color-text-main: #111827;       /* Gris muy oscuro para lectura */
-  --color-text-secondary: #4B5563;  /* Gris medio para info secundaria */
-  --color-text-muted: #9CA3AF;     /* Gris claro para labels */
+  --color-text-main: #0F172A;       /* Casi negro para máxima legibilidad */
+  --color-text-secondary: #374151;  /* Gris oscuro medio para subtítulos */
+  --color-text-muted: #6B7280;     /* Gris medio — visible sobre blanco */
   
   --color-primary: #059669;        /* Esmeralda Operativo */
   --color-accent: #0284C7;         /* Azul Clínico */
@@ -90,4 +90,5 @@ html, body {
 input[type="text"], input[type="number"], select {
   @apply bg-white border border-gray-300 rounded-lg py-2 px-3 text-[13px] text-gray-900 shadow-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all;
 }
+
 
