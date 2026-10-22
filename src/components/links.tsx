@@ -1,102 +1,71 @@
 import Link from "next/link";
 import { BedDouble, Mail, MessageSquare, SendHorizontal, ArrowUpRight } from "lucide-react";
 
-/* ------------------------------------------------------------------ */
-/*  COMPONENTES DE INTERCONEXIÓN                                       */
-/*                                                                     */
-/*  REGLA DE ORO DEL HTML:                                             */
-/*  Un <a> NO puede contener otro <a>.                                 */
-/*                                                                     */
-/*  Por eso existen DOS variantes para cada entidad:                   */
-/*                                                                     */
-/*  1. XxxLink  → genera <a>. Usar FUERA de otros enlaces.             */
-/*  2. XxxLabel → genera <span>. Usar DENTRO de enlaces/cards.         */
-/*                                                                     */
-/*  Si estás dentro de un <Link>, usa la variante Label.               */
-/*  Si estás en texto suelto o en una celda, usa la variante Link.     */
-/* ------------------------------------------------------------------ */
-
-/* -------- CAMA -------- */
-
-/** Enlace a detalle de cama. NO usar dentro de otro <Link> o <a>. */
 export function BedLink({ code, className = "" }: { code: string; className?: string }) {
   return (
     <Link href={`/camas/${encodeURIComponent(code)}`} title={`Ver detalle de ${code}`}
-      className={`mono inline-flex items-center gap-0.5 font-bold text-emerald-700 transition hover:text-emerald-600 ${className}`}>
-      {code}
-      <ArrowUpRight size={10} className="opacity-0 transition group-hover:opacity-100" />
+      className={`mono group inline-flex items-center gap-1 font-black text-emerald-700 transition hover:text-emerald-900 ${className}`}>
+      {code}<ArrowUpRight size={12} className="opacity-40 transition group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
     </Link>
   );
 }
 
-/** Texto decorado de cama. Seguro DENTRO de otro <Link> o <a>. */
 export function BedLabel({ code, className = "" }: { code: string; className?: string }) {
   return (
-    <span className={`mono font-bold text-emerald-700 ${className}`}>
+    <span className={`mono font-black text-emerald-800 ${className}`}>
       {code}
     </span>
   );
 }
 
-/** Chip/badge de cama con enlace. NO usar dentro de otro <Link>. */
 export function BedChip({ code }: { code: string }) {
   return (
     <Link href={`/camas/${encodeURIComponent(code)}`}
-      className="mono inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[10.5px] font-bold text-emerald-700 transition hover:bg-emerald-100">
-      <BedDouble size={10} /> {code}
+      className="mono inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700 border border-emerald-100 transition hover:bg-emerald-100 hover:border-emerald-200">
+      <BedDouble size={12} /> {code}
     </Link>
   );
 }
 
-/* -------- TAREA DE LIMPIEZA -------- */
-
-/** Enlace a detalle de tarea. NO usar dentro de otro <Link>. */
 export function TaskLink({ code }: { code: string }) {
   return (
     <Link href={`/limpieza/${encodeURIComponent(code)}`} title={`Ver ciclo ${code}`}
-      className="mono inline-flex items-center gap-0.5 font-semibold text-sky-700 transition hover:text-sky-600">
-      {code}
-      <ArrowUpRight size={10} className="opacity-60" />
+      className="mono inline-flex items-center gap-1 font-bold text-sky-700 transition hover:text-sky-900">
+      {code}<ArrowUpRight size={12} className="opacity-40" />
     </Link>
   );
 }
 
-/** Texto decorado de tarea. Seguro DENTRO de otro <Link>. */
 export function TaskLabel({ code }: { code: string }) {
   return (
-    <span className="mono font-semibold text-sky-700">{code}</span>
+    <span className="mono font-bold text-sky-800">{code}</span>
   );
 }
 
-/* -------- MENSAJE -------- */
-
-/** Enlace a detalle de mensaje. NO usar dentro de otro <Link>. */
 export function MessageRef({ id, label }: { id: number; label: string }) {
   return (
     <Link href={`/bandeja/${id}`}
-      className="mono inline-flex items-center gap-0.5 text-[10px] text-[var(--color-text-muted)] underline decoration-gray-300 underline-offset-2 transition hover:text-[var(--color-text)]">
+      className="mono inline-flex items-center gap-1 text-[11px] font-bold text-gray-500 underline decoration-gray-300 underline-offset-4 transition hover:text-gray-900 hover:decoration-gray-900">
       {label}
     </Link>
   );
 }
 
-/* -------- CANAL -------- */
-
-export const CHANNEL_META: Record<string, { label: string; short: string; bar: string; chip: string; soft: string; iconColor: string }> = {
-  correo:   { label: "Correo institucional", short: "CORREO",   bar: "bg-amber-400",   chip: "bg-amber-50 text-amber-700",   soft: "border-amber-200 bg-amber-50",   iconColor: "text-amber-600" },
-  telegram: { label: "Telegram del turno",   short: "TELEGRAM", bar: "bg-sky-400",     chip: "bg-sky-50 text-sky-700",       soft: "border-sky-200 bg-sky-50",       iconColor: "text-sky-600" },
-  whatsapp: { label: "WhatsApp del turno",   short: "WHATSAPP", bar: "bg-emerald-400", chip: "bg-emerald-50 text-emerald-700",soft: "border-emerald-200 bg-emerald-50",iconColor: "text-emerald-600" },
-  panel:    { label: "Panel del copiloto",   short: "PANEL",    bar: "bg-violet-400",  chip: "bg-violet-50 text-violet-700", soft: "border-violet-200 bg-violet-50", iconColor: "text-violet-600" },
-  hoja:     { label: "Hoja del turno",       short: "HOJA",     bar: "bg-teal-400",    chip: "bg-teal-50 text-teal-700",     soft: "border-teal-200 bg-teal-50",     iconColor: "text-teal-600" },
-  sistema:  { label: "Sistema",              short: "SISTEMA",  bar: "bg-slate-300",   chip: "bg-slate-100 text-slate-600",  soft: "border-slate-200 bg-slate-50",   iconColor: "text-slate-500" },
+export const CHANNEL_META: Record<string, { label: string; short: string; bar: string; chip: string; iconColor: string }> = {
+  correo:   { label: "Correo",    short: "CORREO",   bar: "bg-amber-500",   chip: "bg-amber-100 text-amber-800 border-amber-200",   iconColor: "text-amber-600" },
+  telegram: { label: "Telegram",  short: "TELEGRAM", bar: "bg-sky-500",     chip: "bg-sky-100 text-sky-800 border-sky-200",       iconColor: "text-sky-600" },
+  whatsapp: { label: "WhatsApp",  short: "WHATSAPP", bar: "bg-emerald-500", chip: "bg-emerald-100 text-emerald-800 border-emerald-200",iconColor: "text-emerald-600" },
+  panel:    { label: "Panel",     short: "PANEL",    bar: "bg-violet-500",  chip: "bg-violet-100 text-violet-800 border-violet-200", iconColor: "text-violet-600" },
+  hoja:     { label: "Hoja",       short: "HOJA",     bar: "bg-teal-500",    chip: "bg-teal-100 text-teal-800 border-teal-200",     iconColor: "text-teal-600" },
+  sistema:  { label: "Sistema",   short: "SISTEMA",  bar: "bg-gray-400",   chip: "bg-gray-100 text-gray-700 border-gray-200",   iconColor: "text-gray-500" },
 };
 
 export function ChannelBadge({ channel, size = "md" }: { channel: string; size?: "sm" | "md" }) {
   const meta = CHANNEL_META[channel] ?? CHANNEL_META.sistema;
-  const Icon = channel === "correo" ? Mail : channel === "telegram" || channel === "whatsapp" ? MessageSquare : SendHorizontal;
+  const Icon = channel === "correo" ? Mail : MessageSquare;
   return (
-    <span className={`mono inline-flex items-center gap-1 rounded-full font-bold uppercase tracking-wider ${meta.chip} ${size === "sm" ? "px-1.5 py-0.5 text-[8.5px]" : "px-2 py-1 text-[9.5px]"}`}>
-      <Icon size={size === "sm" ? 9 : 11} /> {meta.short}
+    <span className={`mono inline-flex items-center gap-1.5 rounded-lg font-black uppercase tracking-widest border ${meta.chip} ${size === "sm" ? "px-2 py-0.5 text-[9px]" : "px-2.5 py-1 text-[10px]"}`}>
+      <Icon size={size === "sm" ? 10 : 12} /> {meta.short}
     </span>
   );
 }
