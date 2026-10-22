@@ -28,7 +28,7 @@ export default async function MessageDetailPage({ params }: { params: Promise<{ 
   const data = await loadMessageDetail(Number(id), now);
   if (!data) notFound();
 
-  const { msg, bed, est, approvals: msgApprovals, replies, parent, msgEvents, bedEvents } = data;
+  const { msg, bed, est, approvals: msgApprovals, thread, parent, msgEvents, bedEvents } = data;
   const cls = msg.classification ? MESSAGE_CLASSIFICATIONS[msg.classification] : null;
   const isOut = msg.direction === "outbound";
   const extracted = msg.extracted as Record<string, unknown>;
@@ -184,22 +184,61 @@ export default async function MessageDetailPage({ params }: { params: Promise<{ 
             </section>
           )}
 
-          {/* hilo de respuestas */}
-          {replies.length > 0 && (
+          {/* Hilo completo de la conversación */}
+          {thread.length > 1 && (
             <Panel className="rise rise-3">
-              <PanelTitle icon={<FileText size={14} />} title="Respuestas enviadas en este hilo" sub="cada una autorizada por un humano, con constancia" />
-              <div className="divide-y divide-white/[0.04]">
-                {replies.map((r) => (
-                  <div key={r.id} className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <ChannelBadge channel={r.channel} size="sm" />
-                      <span className="mono text-[9.5px] text-slate-600">{dayTime(r.receivedAt)}</span>
-                      <span className="mono ml-auto text-[9.5px] text-emerald-300/80">autorizó {r.handledBy}</span>
+              <PanelTitle
+                icon={<FileText size={14} />}
+                title={`Hilo completo — ${thread.length} mensajes`}
+                sub="entrantes y salientes en orden cronológico"
+              />
+              <div className="divide-y divide-[var(--color-border)]">
+                {thread.map((m) => {
+                  const isCurrentMsg = m.id === msg.id;
+                  const isOutbound = m.direction === "outbound";
+                  return (
+                    <div
+                      key={m.id}
+                      className={`px-4 py-3 ${isCurrentMsg ? "bg-[var(--color-surface)]" : ""}`}
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <ChannelBadge channel={m.channel} size="sm" />
+                        <span
+                          className={`mono rounded-full px-2 py-0.5 text-[9px] font-bold uppercase ${
+                            isOutbound
+                              ? "bg-emerald-50 text-emerald-700"
+                              : "bg-slate-100 text-slate-600"
+                          }`}
+                        >
+                          {isOutbound ? "enviado" : "recibido"}
+                        </span>
+                        <span className="mono text-[9.5px] text-[var(--color-text-muted)]">
+                          {dayTime(m.receivedAt)}
+                        </span>
+                        {isCurrentMsg && (
+                          <span className="mono rounded-full bg-amber-50 px-2 py-0.5 text-[9px] font-bold text-amber-700">
+                            este mensaje
+                          </span>
+                        )}
+                        <span className="mono ml-auto text-[9.5px] text-[var(--color-text-muted)]">
+                          {isOutbound ? `por ${m.handledBy ?? "sistema"}` : m.fromName}
+                        </span>
+                      </div>
+                      <div className="mt-1 text-[12px] font-semibold text-[var(--color-text)]">{m.subject}</div>
+                      <p className="mt-0.5 line-clamp-3 text-[11.5px] leading-relaxed text-[var(--color-text-secondary)]">
+                        {m.body}
+                      </p>
+                      {!isCurrentMsg && (
+                        <a
+                          href={`/bandeja/${m.id}`}
+                          className="mono mt-1 inline-block text-[10px] text-emerald-700 hover:underline"
+                        >
+                          Ver completo →
+                        </a>
+                      )}
                     </div>
-                    <div className="mt-1.5 text-[12.5px] font-semibold text-slate-200">{r.subject}</div>
-                    <p className="mt-1 text-[11.5px] leading-relaxed text-slate-400">{r.body}</p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </Panel>
           )}

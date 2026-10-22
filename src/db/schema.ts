@@ -137,20 +137,29 @@ export const messages = pgTable(
     channel: text("channel").notNull(), // correo | telegram
     direction: text("direction").notNull().default("inbound"), // inbound | outbound
     fromName: text("from_name").notNull(),
-    fromAddress: text("from_address"), // Email real para poder responder por SMTP
-    smtpMessageId: text("smtp_message_id"), // Message-ID SMTP original para threading de hilos
+    fromAddress: text("from_address"), // Email real del remitente — para poder responder
+    smtpMessageId: text("smtp_message_id"), // Message-ID SMTP propio de este correo
+    smtpInReplyTo: text("smtp_in_reply_to"), // Header In-Reply-To recibido (a qué responde este correo)
+    smtpReferences: text("smtp_references"), // Header References completo del hilo SMTP
+    subjectKey: text("subject_key"), // Asunto normalizado sin Re:/Fw:/RV: — clave de agrupación
+    threadKey: text("thread_key"), // Identificador estable del hilo completo
     subject: text("subject").notNull(),
     body: text("body").notNull(),
     receivedAt: timestamp("received_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
-    classification: text("classification"), // alta | solicitud_cama | oferta | conflicto | administrativo | instruccion_sistema | duplicado
+    classification: text("classification"),
     extracted: jsonb("extracted").$type<Record<string, unknown>>().notNull().default({}),
-    status: text("status").notNull().default("nuevo"), // nuevo|clasificado|vinculado|pendiente_datos|atendido|no_aplica|duplicado|enviado
+    status: text("status").notNull().default("nuevo"),
     bedId: integer("bed_id").references(() => beds.id),
-    inReplyTo: integer("in_reply_to"), // hilo: respuesta de qué mensaje
+    inReplyTo: integer("in_reply_to"), // FK al mensaje padre (int) — para navegación en la app
     handledBy: text("handled_by"),
     handledAt: timestamp("handled_at", { withTimezone: true, mode: "date" }),
   },
-  (t) => [index("messages_status_idx").on(t.status)]
+  (t) => [
+    index("messages_status_idx").on(t.status),
+    index("messages_thread_idx").on(t.threadKey),
+    index("messages_smtp_msg_idx").on(t.smtpMessageId),
+    index("messages_subject_key_idx").on(t.subjectKey),
+  ]
 );
 
 /**
@@ -209,7 +218,3 @@ export type Message = typeof messages.$inferSelect;
 export type OpsEvent = typeof events.$inferSelect;
 export type Establishment = typeof establishments.$inferSelect;
 export type ShiftReport = typeof shiftReports.$inferSelect;
-export type Contact = typeof contacts.$inferSelect;
-export type Setting = typeof settings.$inferSelect;
-
-

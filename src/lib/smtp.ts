@@ -26,6 +26,7 @@ export async function sendRealEmail(opts: {
   html?: string;
   /** Message-ID del correo original — para threading de hilos */
   inReplyToMessageId?: string;
+  previousReferences?: string;
 }): Promise<{ ok: boolean; messageId?: string; error?: string }> {
   const config = getSmtpConfig();
 

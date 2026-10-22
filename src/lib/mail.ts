@@ -7,6 +7,7 @@
 /*  - toma una ventana temporal configurable (por defecto 90 días)     */
 /*  - procesa los 50 correos MÁS RECIENTES de esa ventana              */
 /*  - la deduplicación la hace la BD con externalId (R7)               */
+/*  - captura headers de threading (Message-ID, In-Reply-To, References)*/
 /* ------------------------------------------------------------------ */
 
 import { ImapFlow } from "imapflow";
@@ -33,24 +34,44 @@ export type InboundEmail = {
   fromName: string;
   fromAddress: string;
   smtpMessageId: string;
+  smtpInReplyTo: string;   // Header In-Reply-To del correo entrante
+  smtpReferences: string;  // Header References completo del hilo
   subject: string;
   body: string;
   receivedAt: Date;
 };
 
+/**
+ * Extrae un header como string desde los headers crudos del correo.
+ * mailparser puede retornar los headers como string, string[] o undefined.
+ */
+function extractHeader(headers: Map<string, unknown> | undefined, name: string): string {
+  if (!headers) return "";
+  const val = headers.get(name.toLowerCase());
+  if (!val) return "";
+  if (typeof val === "string") return val.trim();
+  if (Array.isArray(val)) return val.join(" ").trim();
+  return String(val).trim();
+}
+
 function mapParsedMail(uid: number, parsed: ParsedMail): InboundEmail {
+  const inReplyTo = extractHeader(parsed.headers, "in-reply-to") || parsed.inReplyTo || "";
+  const references = extractHeader(parsed.headers, "references") || "";
+
   return {
     externalId: uid.toString(),
     fromName: parsed.from?.value?.[0]?.name || parsed.from?.text || "Desconocido",
     fromAddress: parsed.from?.value?.[0]?.address || "",
     smtpMessageId: parsed.messageId || "",
+    smtpInReplyTo: inReplyTo,
+    smtpReferences: references,
     subject: parsed.subject || "(Sin asunto)",
     body: parsed.text || parsed.html?.toString() || "",
     receivedAt: parsed.date || new Date(),
   };
 }
 
-export async function fetchInbox(): Promise<{ ok: boolean; emails: InboundEmail[]; error?: string }> {
+export async function fetchInbox(lastUid?: number): Promise<{ ok: boolean; emails: InboundEmail[]; error?: string }> {
   const config = getMailConfig();
   const emails: InboundEmail[] = [];
 

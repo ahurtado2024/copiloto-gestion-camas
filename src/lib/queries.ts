@@ -241,7 +241,28 @@ export async function loadMessageDetail(id: number, now = new Date()) {
   const bed = msg.bedId ? maps.bedMap.get(msg.bedId) ?? null : null;
   const est = bed ? maps.estMap.get(bed.establishmentId) ?? null : null;
   const msgApprovals = await db.select().from(approvals).where(eq(approvals.messageId, msg.id)).orderBy(desc(approvals.id));
-  const replies = await db.select().from(messages).where(eq(messages.inReplyTo, msg.id)).orderBy(desc(messages.id));
+
+  // Hilo completo: todos los mensajes con el mismo threadKey, ordenados cronológicamente.
+  // Si el mensaje no tiene threadKey todavía (correos históricos), fallback por inReplyTo.
+  let thread: (typeof messages.$inferSelect)[] = [];
+  if (msg.threadKey) {
+    thread = await db
+      .select()
+      .from(messages)
+      .where(eq(messages.threadKey, msg.threadKey))
+      .orderBy(asc(messages.receivedAt));
+  } else {
+    // Fallback: padre + el mensaje actual + respuestas directas
+    const directReplies = await db.select().from(messages).where(eq(messages.inReplyTo, msg.id)).orderBy(asc(messages.receivedAt));
+    const parent = msg.inReplyTo ? maps.msgMap.get(msg.inReplyTo) ?? null : null;
+    thread = [...(parent ? [parent] : []), msg, ...directReplies];
+  }
+
+  // Quitar duplicados por ID y ordenar
+  const threadUniq = Array.from(new Map(thread.map((m) => [m.id, m])).values()).sort(
+    (a, b) => a.receivedAt.getTime() - b.receivedAt.getTime()
+  );
+
   const parent = msg.inReplyTo ? maps.msgMap.get(msg.inReplyTo) ?? null : null;
   const msgEvents = await db
     .select()
@@ -249,7 +270,6 @@ export async function loadMessageDetail(id: number, now = new Date()) {
     .where(sql`${events.payload}->>'messageId' = ${String(msg.id)}`)
     .orderBy(desc(events.id))
     .limit(30);
-  // contexto adicional: eventos de la cama vinculada cercanos
   const bedEvents = msg.bedId
     ? await db.select().from(events).where(eq(events.bedId, msg.bedId)).orderBy(desc(events.id)).limit(12)
     : [];
@@ -258,7 +278,7 @@ export async function loadMessageDetail(id: number, now = new Date()) {
     bed,
     est,
     approvals: msgApprovals.map((a) => toApprovalView(a, maps)),
-    replies,
+    thread: threadUniq,         // hilo completo ordenado cronológicamente
     parent,
     msgEvents: msgEvents.map((e) => ({ ...e, bedCode: bed?.code ?? null })),
     bedEvents: bedEvents.map((e) => ({ ...e, bedCode: bed?.code ?? null })),

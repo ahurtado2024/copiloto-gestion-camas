@@ -626,44 +626,58 @@ export async function decideApproval(opts: {
 
     const draftBody = (ap.payload as { draftBody?: string }).draftBody ?? "(sin contenido)";
 
-        // --- ENVÍO REAL POR SMTP CON THREADING ---
-        let smtpResult = { ok: true, messageId: "simulado-id" };
-    
-        if (msg.channel === "correo") {
-          const { sendRealEmail } = await import("./smtp");
-          const res = await sendRealEmail({
-            to: msg.fromAddress || msg.fromName,
-            subject: `RE: ${msg.subject}`,
-            body: draftBody,
-            inReplyToMessageId: msg.smtpMessageId || undefined,
-          });
-          if (!res.ok) {
-            return fail(`Fallo técnico al enviar el correo: ${res.error}. El borrador sigue disponible.`);
-          }
-          smtpResult = { ok: true, messageId: res.messageId || "ok" };
-        }
-    
-        const [outbound] = await db
-          .insert(messages)
-          .values({
-            externalId: `OUT-${ap.code}-${Date.now()}`,
-            channel: msg.channel,
-            direction: "outbound",
-            fromName: `Copiloto Camas (autorizado por ${opts.actor})`,
-            fromAddress: process.env.MAIL_SMTP_USER || null,
-            smtpMessageId: smtpResult.messageId || null,
-            subject: `RE: ${msg.subject}`,
-            body: draftBody,
-            receivedAt: now,
-            classification: "confirmacion",
-            extracted: {},
-            status: "enviado",
-            bedId: msg.bedId,
-            inReplyTo: msg.id,
-            handledBy: opts.actor,
-            handledAt: now,
-          })
-          .returning();
+    // --- ENVÍO SMTP CON THREADING BIDIRECCIONAL COMPLETO ---
+    let smtpResult = { ok: true, messageId: "simulado-id" };
+
+    if (msg.channel === "correo") {
+      const { sendRealEmail } = await import("./smtp");
+      const { buildReferences } = await import("./email-threading");
+      const res = await sendRealEmail({
+        to: msg.fromAddress || msg.fromName,
+        subject: `RE: ${msg.subject}`,
+        body: draftBody,
+        inReplyToMessageId: msg.smtpMessageId || undefined,
+        previousReferences: msg.smtpReferences || undefined,
+      });
+      if (!res.ok) {
+        return fail(`Fallo técnico al enviar el correo: ${res.error}. El borrador sigue disponible.`);
+      }
+      smtpResult = { ok: true, messageId: res.messageId || "ok" };
+    }
+
+    // Cadena References del saliente = referencias anteriores + ID del correo que respondemos
+    const { buildReferences: buildRef, normalizeSubject } = await import("./email-threading");
+    const outboundReferences = buildRef({
+      previousReferences: msg.smtpReferences,
+      previousMessageId: msg.smtpMessageId,
+    }) || null;
+
+    const [outbound] = await db
+      .insert(messages)
+      .values({
+        externalId: `OUT-${ap.code}-${Date.now()}`,
+        channel: msg.channel,
+        direction: "outbound",
+        fromName: `Copiloto Camas (autorizado por ${opts.actor})`,
+        fromAddress: process.env.MAIL_SMTP_USER || null,
+        smtpMessageId: smtpResult.messageId || null,
+        smtpInReplyTo: msg.smtpMessageId || null,
+        smtpReferences: outboundReferences,
+        // Hereda el hilo y la clave de asunto del mensaje original
+        threadKey: msg.threadKey || msg.smtpMessageId || null,
+        subjectKey: msg.subjectKey || normalizeSubject(msg.subject),
+        subject: `RE: ${msg.subject}`,
+        body: draftBody,
+        receivedAt: now,
+        classification: "confirmacion",
+        extracted: {},
+        status: "enviado",
+        bedId: msg.bedId,
+        inReplyTo: msg.id,
+        handledBy: opts.actor,
+        handledAt: now,
+      })
+      .returning();
 
     await db
       .update(messages)
@@ -1170,5 +1184,3 @@ export async function closeShift(actor: string, horizonHours?: number): Promise<
   });
   return ok(`Informe "${report.label}" generado desde la caja negra. El relevo puede operar sin llamada telefónica.`);
 }
-
-
